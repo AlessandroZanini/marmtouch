@@ -75,10 +75,11 @@ def _transfer_files(videos_directory, server_path, verbose=True):
         videos_directory.rmdir()
 
 @click.command()
-@click.option('-s','--source',default='/home/pi/Videos/Touchscreen',help='Directory containing folders to be copied')
+@click.option('-s','--source',default='/home/pi/Touchscreen',help='Directory containing folders to be copied')
 @click.option('-d','--dest',default='/mnt/Data2/Touchscreen',help='Destination where data will be saved')
-def transfer_files(videos_directory, server_path):
-    videos_directory = Path(videos_directory)
+def transfer_files(source,dest):
+    videos_directory = Path(source)
+    server_path = Path(dest)
     sessions = [f for f in videos_directory.iterdir() if f.is_dir()]
     for session_directory in tqdm(sessions, desc='sessions'):
         _transfer_files(session_directory, server_path)

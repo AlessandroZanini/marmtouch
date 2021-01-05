@@ -148,6 +148,10 @@ class Memory(Experiment):
             self.dump_trialdata(trialdata)
             trial += 1
             self.info[condition][trialdata['sample_touch']] += 1
+            #iti
+            start_time = time.time()
+            while time.time()-start_time<5:
+                self.parse_events()
 
 
     def update_info(self,trial):
