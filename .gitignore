@@ -1,0 +1,5 @@
+marmtouch/_version.py
+**/*.eggs
+**/*.egg-info
+**/__pycache__
+configs
