@@ -26,7 +26,8 @@ class Experiment:
 
     keys = ['trial','trial_start_time','condition']
     sep = ','
-    def __init__(self,data_dir,params,TTLout={'reward':11,'sync':16},camera=True):
+    info_background = (0,0,0)
+    def __init__(self,data_dir,params,TTLout={'reward':11,'sync':16},camera=True,camera_preview=False,camera_preview_window=(0,600,320,200)):
         if data_dir is None:
             self.data_dir = None
             self.logger = util.getLogger()
@@ -45,7 +46,8 @@ class Experiment:
             with open(self.behdata_path.as_posix(), 'w') as f:
                 f.write(",".join(self.keys)+'\n')
             self.logger = util.getLogger(self.logger_path.as_posix())
-
+        self.camera_preview = camera_preview
+        self.camera_preview_window = camera_preview_window
         if camera:
             self.camera = util.setup_camera()
         else:
@@ -75,6 +77,8 @@ class Experiment:
         GPIO.cleanup()
         if self.camera is not None and self.camera.recording:
             self.camera.stop_recording()
+        if self.camera is not None and self.camera_preview:
+            self.camera.stop_preview()
         if self.data_dir is not None:
             with open(self.events_path.as_posix(), 'w') as f:
                 yaml.dump(self.events, f)
@@ -115,6 +119,20 @@ class Experiment:
         with open(self.behdata_path.as_posix(),'a') as f:
             f.write(self.sep.join([str(trialdata[key]) for key in self.keys])+'\n')
         self.behdata.append(trialdata)
+
+    def initialize(self):
+        pygame.init()
+        pygame.mouse.set_visible(1)
+        pygame.mouse.set_cursor((8,8),(0,0),(0,0,0,0,0,0,0,0),(0,0,0,0,0,0,0,0))
+        self.screen = pygame.display.set_mode((0,0),pygame.FULLSCREEN)
+        self.info_screen = pygame.Surface((350,800))
+        self.screen.fill(self.background)
+        self.info_screen.fill(self.info_background)
+        self.font = pygame.font.Font(None,20)
+        self.flip()
+
+        if self.camera_preview:
+            self.camera.start_preview(fullscreen=False,window=self.camera_preview_window)
 
     def draw_stimulus(self,**params):
         """ Draws stimuli on screen

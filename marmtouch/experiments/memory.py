@@ -100,14 +100,7 @@ class Memory(Experiment):
         return info
 
     def run(self):
-        pygame.init()
-        self.screen = pygame.display.set_mode((0,0),pygame.FULLSCREEN)
-        self.info_screen = pygame.Surface((350,800))
-        self.screen.fill(self.background)
-        self.info_screen.fill(self.info_background)
-        self.font = pygame.font.Font(None,20)
-        self.flip()
-
+        self.initialize()
         self.info = {condition: Counter() for condition in self.conditions.keys()}
 
         trial = 0
