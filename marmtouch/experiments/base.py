@@ -80,6 +80,7 @@ class Experiment:
         if self.camera is not None and self.camera_preview:
             self.camera.stop_preview()
         if self.data_dir is not None:
+            self.dump_trialdata()
             with open(self.events_path.as_posix(), 'w') as f:
                 yaml.dump(self.events, f)
         self.running = False
@@ -115,9 +116,9 @@ class Experiment:
         else:
             return None
 
-    def dump_trialdata(self,trialdata):
+    def dump_trialdata(self,trialdata={}):
         with open(self.behdata_path.as_posix(),'a') as f:
-            f.write(self.sep.join([str(trialdata[key]) for key in self.keys])+'\n')
+            f.write(self.sep.join([str(trialdata.get(key, 'nan')) for key in self.keys])+'\n')
         self.behdata.append(trialdata)
 
     def initialize(self):

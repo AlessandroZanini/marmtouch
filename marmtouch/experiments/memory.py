@@ -108,6 +108,13 @@ class Memory(Experiment):
         self.start_time = time.time()
         while self.running:
             self.update_info(trial)
+            
+            #iti
+            start_time = time.time()
+            while time.time()-start_time<5:
+                self.parse_events()
+            
+            #initialize trial parameters
             condition = random.choice(list(self.conditions.keys()))
             cue_duration, delay_duration, sample_duration = self.get_duration('cue'), self.get_duration('delay'), self.get_duration('sample')
             trial_start_time = time.time() - self.start_time
@@ -116,6 +123,7 @@ class Memory(Experiment):
             self.TTLout['sync'].pulse(.1)
             self.camera.start_recording((self.data_dir/f'{trial}.h264').as_posix())
 
+            #run trial
             cue_result = self._show_cue(condition, cue_duration)
             if cue_result is None:
                 break
@@ -133,6 +141,7 @@ class Memory(Experiment):
                         'sample_touch': sample_result.get('touch',0),
                         'sample_RT': sample_result.get('RT',0)
                     })
+
             #wipe screen
             self.screen.fill(self.background)
             self.flip()
@@ -141,10 +150,6 @@ class Memory(Experiment):
             self.dump_trialdata(trialdata)
             trial += 1
             self.info[condition][trialdata['sample_touch']] += 1
-            #iti
-            start_time = time.time()
-            while time.time()-start_time<5:
-                self.parse_events()
 
 
     def update_info(self,trial):

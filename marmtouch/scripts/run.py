@@ -22,4 +22,17 @@ def memory(params_path,preview):
     #TODO: implement lock to prevent double running?
     memory.run()
 
+@click.command()
+@click.argument('params_path',required=True)
+@click.option('--camera/--no-camera',default=True,help='Enables recording with camera')
+def basic(params_path,camera):
+    """ Run basic paradigm using parameters specified at PARAMS_PATH """
+    from marmtouch.experiments.basic import Basic
+    params = yaml.safe_load(open(params_path))
+    session = time.strftime("%Y-%m-%d_%H-%M-%S")
+    data_dir = Path('/home/pi/Touchscreen', session)
+    basic = Basic(data_dir, params, camera=camera)
+    basic.run()
+
 run.add_command(memory)
+run.add_command(basic)
