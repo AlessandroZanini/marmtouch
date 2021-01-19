@@ -2,6 +2,7 @@ import marmtouch.util as util
 
 from pathlib import Path
 import shutil
+import subprocess
 
 from tqdm import tqdm
 import click
@@ -74,9 +75,21 @@ def _transfer_files(videos_directory, server_path, verbose=True):
     else:
         videos_directory.rmdir()
 
+default_source='/home/pi/Touchscreen'
+default_destination='/mnt/Data2/Touchscreen'
+def bulk_transfer_files(source=default_source,dest=default_destination,mount=True):
+    if mount:
+        subprocess.run('sudo mount -a')
+    videos_directory = Path(source)
+    server_path = Path(dest)
+    sessions = [f for f in videos_directory.iterdir() if f.is_dir()]
+    for session_directory in tqdm(sessions, desc='sessions'):
+        _transfer_files(session_directory, server_path)
+
+
 @click.command()
-@click.option('-s','--source',default='/home/pi/Touchscreen',help='Directory containing folders to be copied')
-@click.option('-d','--dest',default='/mnt/Data2/Touchscreen',help='Destination where data will be saved')
+@click.option('-s','--source',default=default_source,help='Directory containing folders to be copied')
+@click.option('-d','--dest',default=default_destination,help='Destination where data will be saved')
 def transfer_files(source,dest):
     videos_directory = Path(source)
     server_path = Path(dest)
