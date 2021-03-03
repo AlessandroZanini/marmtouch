@@ -3,6 +3,8 @@ import marmtouch.util as util
 from pathlib import Path 
 import time
 import random
+from itertools import cycle
+from collections import Counter
 
 import RPi.GPIO as GPIO
 import pygame
@@ -23,11 +25,11 @@ class Experiment:
     [1] You must define self.screen and self.info_screen in self.run for self.flip to function
     [2] draw_stimulus does not automatically flip the screen to prevent unnecessary updating when multiple items are drawn.  self.flip must be called when screen is to be updated.
     """
-
+    default_reward_params = dict(duration=.2,n_pulses=1,interpulse_interval=1)
     keys = ['trial','trial_start_time','condition']
     sep = ','
     info_background = (0,0,0)
-    def __init__(self,data_dir,params,TTLout={'reward':11,'sync':16},camera=True,camera_preview=False,camera_preview_window=(0,600,320,200)):
+    def __init__(self,data_dir,params,TTLout={'reward':11,'sync':16},camera=True,camera_preview=False,camera_preview_window=(0,600,320,200), fullscreen=True):
         if data_dir is None:
             self.data_dir = None
             self.logger = util.getLogger()
@@ -52,20 +54,31 @@ class Experiment:
             self.camera = util.setup_camera()
         else:
             self.camera = None
-        
+        self.fullscreen = fullscreen
         self.TTLout = {k: util.TTL(v) for k, v in TTLout.items()}
 
         self.params = params
         self.timing = params['timing']
         self.conditions = params['conditions']
         self.background = params['background']
+        self.items = params['items']
+        self.reward = params.get('reward', self.default_reward_params)
+
+        blocks = params.get('blocks')
+        if blocks is None:
+            blocks = [{'conditions': list(self.conditions.keys()), 'length': len(self.conditions)}]
+        self.blocks = cycle(blocks)
+        self.condition_list = []
 
         self.behdata = []
         self.events = []
 
         util.setup_screen()
         self.logger.info(f'experiment initialized')
-    
+
+    def good_monkey(self):
+        self.TTLout['reward'].pulse(**self.reward)
+
     def get_duration(self, name):
         duration = self.timing[name]
         if isinstance(duration, (int, float)):
@@ -121,11 +134,58 @@ class Experiment:
             f.write(self.sep.join([str(trialdata.get(key, 'nan')) for key in self.keys])+'\n')
         self.behdata.append(trialdata)
 
+    def _init_block(self, block_info):
+        self.active_block = block_info
+        method = block_info.get('method', 'random')
+        conditions = block_info['conditions']
+        length = block_info['length']
+        self.retry_method = block_info.get('retry_method')
+        self.max_retries = block_info.get('max_retries')
+        self.n_retries = Counter()
+        if method == 'random':
+            weights = block_info.get('weights')
+            self.condition_list = random.choices(conditions, weights=weights, k=length)
+        elif method == 'incremental':
+            condition_list = cycle(conditions)
+            self.condition_list = [next(condition_list) for _ in range(length)]
+        else:
+            raise ValueError("'method' must be one of ['random','incremental']")
+
+    def get_condition(self):
+        if not self.condition_list:
+            self._init_block(next(self.blocks))
+        self.condition = self.condition_list.pop(0)
+        return self.condition
+
+    def update_condition_list(self, correct=True):
+        if correct:
+            return
+
+        retry_method = self.active_block.get('retry_method')
+        max_retries = self.active_block.get('max_retries')
+        if max_retries is not None:
+            if self.n_retries[self.condition] >= max_retries:
+                return
+            self.n_retries[self.condition] += 1
+
+        if retry_method is None:
+            return
+        elif retry_method == 'delayed':
+            idx = random.randint(0, len(self.condition_list))
+            self.condition_list.insert(idx, self.condition)
+        elif retry_method == 'immediate':
+            self.condition_list.insert(0, self.condition)
+        else:
+            raise ValueError("'retry_method' must be one of [None,'delayed','immediate']")
+
     def initialize(self):
         pygame.init()
         pygame.mouse.set_visible(1)
         pygame.mouse.set_cursor((8,8),(0,0),(0,0,0,0,0,0,0,0),(0,0,0,0,0,0,0,0))
-        self.screen = pygame.display.set_mode((0,0),pygame.FULLSCREEN)
+        if self.fullscreen:
+            self.screen = pygame.display.set_mode((0,0),pygame.FULLSCREEN)
+        else:
+            self.screen = pygame.display.set_mode((1200,750))
         self.info_screen = pygame.Surface((350,800))
         self.screen.fill(self.background)
         self.info_screen.fill(self.info_background)
@@ -141,7 +201,6 @@ class Experiment:
         Draws stimuli on screen using pygame using parameters provided.
         Must manually call pygame.display.update() after drawing all stimuli.
         Use self.screen.fill(self.background) to clear the screen
-
         """
         if params['type'] == 'circle':
             pygame.draw.circle(self.screen, params['color'], params['loc'], params['radius'])

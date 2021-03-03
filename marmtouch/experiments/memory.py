@@ -27,7 +27,7 @@ class Memory(Experiment):
         return info
 
     def _show_cue(self,condition,duration,rel_tol=2):
-        cue = self.conditions[condition]['cue']
+        cue = self.items[self.conditions[condition]['cue']]
         tolerance = cue['radius']*rel_tol
 
         self.screen.fill(self.background)
@@ -47,10 +47,10 @@ class Memory(Experiment):
         return info
 
     def _show_sample(self,condition,sample_duration,correct_duration,incorrect_duration,rel_tol=2):
-        targets = self.conditions[condition]['targets']
-        cue = self.conditions[condition]['cue']
-        correct = self.conditions[condition]['correct']
-        incorrect = self.conditions[condition]['incorrect']
+        targets = [self.items[target] for target in self.conditions[condition]['targets']]
+        cue = self.items[self.conditions[condition]['cue']]
+        correct = self.items[self.conditions[condition]['correct']]
+        incorrect = self.items[self.conditions[condition]['incorrect']]
 
         tolerance = cue['radius']*rel_tol
 
@@ -75,7 +75,7 @@ class Memory(Experiment):
                     self.screen.fill(self.background)
                     self.draw_stimulus(**correct)
                     self.flip()
-                    self.TTLout['reward'].pulse(.2,n_pulses=1,interpulse_interval=1)
+                    self.good_monkey()
                     start_time = time.time()
                     while (time.time()-start_time) < correct_duration: 
                         self.parse_events()
@@ -113,9 +113,16 @@ class Memory(Experiment):
             start_time = time.time()
             while time.time()-start_time<5:
                 self.parse_events()
+                if not self.running:
+                    return
+            if not self.running:
+                return
             
             #initialize trial parameters
-            condition = random.choice(list(self.conditions.keys()))
+            if self.blocks is None:
+                condition = random.choice(list(self.conditions.keys()))
+            else:
+                condition = self.get_condition()
             cue_duration, delay_duration, sample_duration = self.get_duration('cue'), self.get_duration('delay'), self.get_duration('sample')
             trial_start_time = time.time() - self.start_time
             trialdata = dict(trial=trial,trial_start_time=trial_start_time,condition=condition,cue_touch=0,sample_touch=0,cue_RT=0,sample_RT=0,cue_duration=cue_duration,delay_duration=delay_duration,sample_duration=sample_duration)
@@ -141,6 +148,7 @@ class Memory(Experiment):
                         'sample_touch': sample_result.get('touch',0),
                         'sample_RT': sample_result.get('RT',0)
                     })
+            outcome = trialdata['sample_touch']
 
             #wipe screen
             self.screen.fill(self.background)
@@ -149,8 +157,9 @@ class Memory(Experiment):
             self.camera.stop_recording()
             self.dump_trialdata(trialdata)
             trial += 1
-            self.info[condition][trialdata['sample_touch']] += 1
-
+            self.info[condition][outcome] += 1
+            if self.blocks is not None:
+                self.update_condition_list(correct=(outcome==1))
 
     def update_info(self,trial):
         info = f"{self.params['monkey']} {self.params['task']} Trial#{trial}\n"

@@ -76,10 +76,10 @@ def _transfer_files(videos_directory, server_path, verbose=True):
         videos_directory.rmdir()
 
 default_source='/home/pi/Touchscreen'
-default_destination='/mnt/Data2/Touchscreen'
+default_destination='/mnt/Data/Touchscreen/Data'
 def bulk_transfer_files(source=default_source,dest=default_destination,mount=True):
     if mount:
-        subprocess.run('sudo mount -a')
+        subprocess.Popen('sudo mount -a',shell=True)
     videos_directory = Path(source)
     server_path = Path(dest)
     sessions = [f for f in videos_directory.iterdir() if f.is_dir()]

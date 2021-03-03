@@ -77,7 +77,7 @@ class Launcher:
     def _init(self):
         self.root = tk.Tk()
         self.root.title("marmtouch launcher")
-        self.root.geometry("300x800+0+0")
+        self.root.geometry("300x700+0+0")
         self.root.configure(background="gray99")
         self.scframe = VerticalScrolledFrame(self.root)
         self.scframe.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE)
@@ -86,10 +86,19 @@ class Launcher:
         self._recycle_buttons()
         jobs = [
             dict(text='Transfer', command=bulk_transfer_files),
+            dict(text='Camera preview', command=self.preview_camera),
             dict(text='Tasks', command=self.task_selector),
+            dict(text='Exit', command=self.exit)
         ]
         for job in jobs:
             self._add_button(**job)
+
+    def preview_camera(self):
+        from picamera import PiCamera
+        camera = PiCamera()
+        camera.start_preview()
+        time.sleep(30)
+        camera.stop_preview()
 
     def task_selector(self):
         self._recycle_buttons()
@@ -109,12 +118,16 @@ class Launcher:
         params = yaml.safe_load(open(config))
         session = time.strftime("%Y-%m-%d_%H-%M-%S")
         data_dir = Path('/home/pi/Touchscreen', session)
-        if task.name == 'basic':
+        if task.name in ['basic','random']:
             from marmtouch.experiments.basic import Basic
-            Basic(data_dir, params)
-        elif task.name == 'memory':
+            Basic(data_dir, params).run()
+        elif task.name in ['memory','cued']:
             from marmtouch.experiments.memory import Memory
-            Memory(data_dir, params)
+            Memory(data_dir, params).run()
+        self.exit()
+
+    def exit(self):
+        self.root.destroy()
 
 default_config_directory = '/home/pi/configs/'
 @click.command()

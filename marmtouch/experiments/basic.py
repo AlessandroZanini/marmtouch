@@ -14,9 +14,9 @@ class Basic(Experiment):
     info_background = (0,0,0)
 
     def _show_target(self,condition,target_duration,correct_duration,incorrect_duration,rel_tol=2):
-        target = self.conditions[condition]['target']
-        correct = self.conditions[condition]['correct']
-        incorrect = self.conditions[condition]['incorrect']
+        target = self.items[self.conditions[condition]['target']]
+        correct = self.items[self.conditions[condition]['correct']]
+        incorrect = self.items[self.conditions[condition]['incorrect']]
 
         tolerance = target['radius']*rel_tol
 
@@ -45,7 +45,7 @@ class Basic(Experiment):
                         while (time.time()-start_time) < correct_duration: 
                             self.parse_events()
                     else:
-                        self.TTLout['reward'].pulse(.2,n_pulses=1,interpulse_interval=1)
+                        self.good_monkey()
                     
                     self.screen.fill(self.background)
                     self.flip()
