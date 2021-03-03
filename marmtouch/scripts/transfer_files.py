@@ -17,12 +17,16 @@ def _transfer_files(videos_directory, server_path, verbose=True):
 
     server_session_path = server_path / session
     logger_path = server_session_path / f'{session}.log'
-    if not server_session_path.is_dir():
-        try:
-            server_session_path.mkdir()
-        except:
-            print(f"Failed to create directory {server_session_path}.")
-            return
+    copy_no = 1
+    while server_session_path.is_dir():
+        print(f'Folder already exists at loc: {seever_session_path.as_posix()}')
+        server_session_path = server_path / f"{session} ({copy_no})"
+        copy_no += 1
+    try:
+        server_session_path.mkdir()
+    except:
+        print(f"Failed to create directory {server_session_path}.")
+        return
     logger = util.getLogger(logger_path.as_posix())
     videos = set(video for video in videos_directory.iterdir() if video.is_file())
 

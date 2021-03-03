@@ -87,8 +87,23 @@ class Launcher:
         jobs = [
             dict(text='Transfer', command=bulk_transfer_files),
             dict(text='Camera preview', command=self.preview_camera),
+            dict(text='Test GPIO', command=self.test_GPIO_selector),
             dict(text='Tasks', command=self.task_selector),
             dict(text='Exit', command=self.exit)
+        ]
+        for job in jobs:
+            self._add_button(**job)
+
+    def test_GPIO(self, port):
+        from marmtouch.util import TTL
+        TTL(port).pulse()
+
+    def test_GPIO_selector(self):
+        self._recycle_buttons()
+        jobs = [
+            dict(text='reward', command=partial(self.test_GPIO, port=11)),
+            dict(text='sync',command=partial(self.test_GPIO, port=16)),
+            dict(text='<<',command=self.job_selector)
         ]
         for job in jobs:
             self._add_button(**job)
