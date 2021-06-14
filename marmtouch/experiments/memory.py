@@ -11,7 +11,7 @@ class Memory(Experiment):
     keys = 'trial','trial_start_time','condition','cue_touch','cue_RT','sample_touch','sample_RT','cue_duration','delay_duration','sample_duration'
     name = 'Memory'
     info_background = (0,0,0)
-    def _run_delay(self,condition,duration):
+    def _run_delay(self,duration):
         """ Run a delay based for provided duration. Returns last touch during delay period if there was one. """
         self.screen.fill(self.background)
         self.flip()
@@ -26,42 +26,36 @@ class Memory(Experiment):
                 info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
         return info
 
-    def _show_cue(self,condition,duration,rel_tol=2):
-        cue = self.items[self.conditions[condition]['cue']]
-        tolerance = cue['radius']*rel_tol
+    def _show_cue(self,stimuli,timing,rel_tol=2):
+        tolerance = stimuli['cue']['radius']*rel_tol
 
         self.screen.fill(self.background)
-        self.draw_stimulus(**cue)
+        self.draw_stimulus(**stimuli['cue'])
         self.flip()
 
         start_time = current_time = time.time()
         info = {'touch':0,'RT':0}
-        while (current_time-start_time) < duration:
+        while (current_time-start_time) < timing['cue_duration']:
             current_time = time.time()
             tap = self.get_first_tap(self.parse_events())
             if not self.running:
                 return
             if tap is not None:
-                if abs(cue['loc'][0]-tap[0])<tolerance and abs(cue['loc'][1]-tap[1])<tolerance:
+                if abs(stimuli['cue']['loc'][0]-tap[0])<tolerance and abs(stimuli['cue']['loc'][1]-tap[1])<tolerance:
                     info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
         return info
 
-    def _show_sample(self,condition,sample_duration,correct_duration,incorrect_duration,rel_tol=2):
-        targets = [self.items[target] for target in self.conditions[condition]['targets']]
-        cue = self.items[self.conditions[condition]['cue']]
-        correct = self.items[self.conditions[condition]['correct']]
-        incorrect = self.items[self.conditions[condition]['incorrect']]
-
-        tolerance = cue['radius']*rel_tol
+    def _show_sample(self,stimuli,timing,rel_tol=2):
+        tolerance = stimuli['cue']['radius']*rel_tol
 
         self.screen.fill(self.background)
-        for target in targets:
+        for target in stimuli['targets']:
             self.draw_stimulus(**target)
         self.flip()
 
         start_time = current_time = time.time()
         info = {'touch':0,'RT':0}
-        while (current_time-start_time) < sample_duration:
+        while (current_time-start_time) < timing['sample_duration']:
             current_time = time.time()
             tap = self.get_first_tap(self.parse_events())
             if not self.running:
@@ -69,15 +63,15 @@ class Memory(Experiment):
             if tap is None:
                 continue
             else:
-                if abs(cue['loc'][0]-tap[0])<tolerance and abs(cue['loc'][1]-tap[1])<tolerance:
+                if abs(stimuli['cue']['loc'][0]-tap[0])<tolerance and abs(stimuli['cue']['loc'][1]-tap[1])<tolerance:
                     info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
                     #reward and show correct for correct duration
                     self.screen.fill(self.background)
-                    self.draw_stimulus(**correct)
+                    self.draw_stimulus(**stimuli['correct'])
                     self.flip()
                     self.good_monkey()
                     start_time = time.time()
-                    while (time.time()-start_time) < correct_duration: 
+                    while (time.time()-start_time) < timing['correct_duration']: 
                         self.parse_events()
                     #clear screen and exit
                     self.screen.fill(self.background)
@@ -87,10 +81,10 @@ class Memory(Experiment):
                     info = {'touch':2, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
                     #show incorrect for incorrect duration
                     self.screen.fill(self.background)
-                    self.draw_stimulus(**incorrect)
+                    self.draw_stimulus(**stimuli['incorrect'])
                     self.flip()
                     start_time = time.time()
-                    while (time.time()-start_time) < incorrect_duration:
+                    while (time.time()-start_time) < timing['incorrect_duration']:
                         self.parse_events()
                     #clear screen and exit
                     self.screen.fill(self.background)
@@ -123,23 +117,27 @@ class Memory(Experiment):
                 condition = random.choice(list(self.conditions.keys()))
             else:
                 condition = self.get_condition()
-            cue_duration, delay_duration, sample_duration = self.get_duration('cue'), self.get_duration('delay'), self.get_duration('sample')
+
+            stimuli = {stimulus: self.get_item(self.conditions[condition][stimulus]) for stimulus in ['cue','correct','incorrect']}
+            stimuli['targets'] = [self.get_item(target) for target in self.conditions[condition]['targets']]
+
+            timing = {f"{event}_duration": self.get_duration(event) for event in ['cue','delay','sample','correct','incorrect']}
             trial_start_time = time.time() - self.start_time
-            trialdata = dict(trial=trial,trial_start_time=trial_start_time,condition=condition,cue_touch=0,sample_touch=0,cue_RT=0,sample_RT=0,cue_duration=cue_duration,delay_duration=delay_duration,sample_duration=sample_duration)
+            trialdata = dict(trial=trial,trial_start_time=trial_start_time,condition=condition,cue_touch=0,sample_touch=0,cue_RT=0,sample_RT=0,**timing)
 
             self.TTLout['sync'].pulse(.1)
             self.camera.start_recording((self.data_dir/f'{trial}.h264').as_posix())
 
             #run trial
-            cue_result = self._show_cue(condition, cue_duration)
+            cue_result = self._show_cue(stimuli, timing)
             if cue_result is None:
                 break
             if cue_result['touch'] >= 0: #no matter what
-                delay_result = self._run_delay(condition, delay_duration)
+                delay_result = self._run_delay(timing['delay_duration'])
                 if delay_result is None:
                     break
                 if delay_result.get('touch',0) >= 0: #no matter what
-                    sample_result = self._show_sample(condition, sample_duration, self.get_duration('correct'), self.get_duration('incorrect'))
+                    sample_result = self._show_sample(stimuli, timing)
                     if sample_result is None:
                         break
                     trialdata.update({

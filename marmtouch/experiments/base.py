@@ -29,6 +29,7 @@ class Experiment:
     keys = ['trial','trial_start_time','condition']
     sep = ','
     info_background = (0,0,0)
+    _image_cache_max_len = 20
     def __init__(self,data_dir,params,TTLout={'reward':11,'sync':16},camera=True,camera_preview=False,camera_preview_window=(0,600,320,200), fullscreen=True):
         if data_dir is None:
             self.data_dir = None
@@ -63,6 +64,7 @@ class Experiment:
         self.background = params['background']
         self.items = params['items']
         self.reward = params.get('reward', self.default_reward_params)
+        self.images = {}
 
         blocks = params.get('blocks')
         if blocks is None:
@@ -204,6 +206,24 @@ class Experiment:
         """
         if params['type'] == 'circle':
             pygame.draw.circle(self.screen, params['color'], params['loc'], params['radius'])
+        elif params['type'] == 'image':
+            self.screen.blit(params['image'], params['loc'])
+    def get_image_stimulus(self,path,**params):
+        params['type'] = 'image'
+        image = self.images.get(path)
+        if image is None:
+            self.images[path] = params['image'] = pygame.image.load(path)
+            if len(self.images) > self._image_cache_max_len:
+                self.images.pop(list(self.images.keys())[0])
+        else:
+            params['image'] = image
+        return params
+    def get_item(self, item_key=None, **params):
+        if item_key is not None:
+            params.update(self.items[item_key])
+        if params['type'] == 'image':
+            params = self.get_image_stimulus(**params)
+        return params
     def flip(self):
         self.screen.blit(self.info_screen,(0,0))
         pygame.display.update()
