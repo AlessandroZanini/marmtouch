@@ -98,8 +98,8 @@ class Memory(Experiment):
         self.initialize()
 
         delay_times = [self.timing['delay']] if isinstance(self.timing['delay'], (int, float)) else self.timing['delay']
-        combinations = product(self.conditions.keys(), delay_times)
-        self.info = {comb: Counter() for comb in combinations}
+        combinations = product(delay_times, self.conditions.keys())
+        self.info = {(condition, delay): Counter() for (delay, condition) in combinations}
 
         trial = 0
         self.running = True
@@ -159,7 +159,7 @@ class Memory(Experiment):
             self.camera.stop_recording()
             self.dump_trialdata(trialdata)
             trial += 1
-            self.info[condition, timing['delay']][outcome] += 1
+            self.info[condition, timing['delay_duration']][outcome] += 1
             if self.blocks is not None:
                 self.update_condition_list(correct=(outcome==1))
 
