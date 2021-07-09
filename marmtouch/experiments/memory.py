@@ -155,14 +155,14 @@ class Memory(Experiment):
             self.camera.stop_recording()
             self.dump_trialdata(trialdata)
             trial += 1
-            self.info[condition][outcome] += 1
+            self.info[f"Condition {condition}, Delay: {timing['delay']}"][outcome] += 1
             if self.blocks is not None:
                 self.update_condition_list(correct=(outcome==1))
 
     def update_info(self,trial):
         info = f"{self.params['monkey']} {self.params['task']} Trial#{trial}\n"
         for condition, condition_info in self.info.items():
-            info += f"Condition {condition}: {condition_info[1]: 3d} correct, {condition_info[2]: 3d} incorrect\n"
+            info += f"{condition}: {condition_info[1]: 3d} correct, {condition_info[2]: 3d} incorrect\n"
         overall = sum(self.info.values(),Counter())
         info += f"Overall: {overall[1]: 3d} correct, {overall[2]: 3d} incorrect, {overall[0]: 3d} no response\n"
         
