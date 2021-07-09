@@ -1,6 +1,7 @@
 from marmtouch.experiments.base import Experiment
 
 from collections import Counter
+from itertools import product
 import random
 import time
 from pathlib import Path
@@ -95,7 +96,10 @@ class Memory(Experiment):
 
     def run(self):
         self.initialize()
-        self.info = {condition: Counter() for condition in self.conditions.keys()}
+
+        delay_times = [self.timing['delay']] if isinstance(self.timing['delay'], (int, float)) else self.timing['delay']
+        combinations = product(self.conditions.keys(), delay_times)
+        self.info = {comb: Counter() for comb in combinations}
 
         trial = 0
         self.running = True
@@ -155,14 +159,14 @@ class Memory(Experiment):
             self.camera.stop_recording()
             self.dump_trialdata(trialdata)
             trial += 1
-            self.info[f"Condition {condition}, Delay: {timing['delay']}"][outcome] += 1
+            self.info[condition, timing['delay']][outcome] += 1
             if self.blocks is not None:
                 self.update_condition_list(correct=(outcome==1))
 
     def update_info(self,trial):
         info = f"{self.params['monkey']} {self.params['task']} Trial#{trial}\n"
-        for condition, condition_info in self.info.items():
-            info += f"{condition}: {condition_info[1]: 3d} correct, {condition_info[2]: 3d} incorrect\n"
+        for (condition, delay), condition_info in self.info.items():
+            info += f"Condition {condition}, Delay: {delay}: {condition_info[1]: 3d} correct, {condition_info[2]: 3d} incorrect\n"
         overall = sum(self.info.values(),Counter())
         info += f"Overall: {overall[1]: 3d} correct, {overall[2]: 3d} incorrect, {overall[0]: 3d} no response\n"
         
