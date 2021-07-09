@@ -30,9 +30,9 @@ class Experiment:
     sep = ','
     info_background = (0,0,0)
     _image_cache_max_len = 20
-    system_config_path = '~/marmtouch_system_config.yaml'
+    system_config_path = '/home/pi/marmtouch_system_config.yaml'
     def __init__(self,data_dir,params,TTLout={'reward':11,'sync':16},camera=True,camera_preview=False,camera_preview_window=(0,600,320,200), fullscreen=True):
-        system_params = yaml.safe_load(open(Path(self.system_config_path).expanduser()))
+        system_params = yaml.safe_load(open(Path(self.system_config_path)))
         params.update(system_params)
         if data_dir is None:
             self.data_dir = None
