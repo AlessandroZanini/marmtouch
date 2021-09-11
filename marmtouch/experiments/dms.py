@@ -3,9 +3,7 @@ from marmtouch.experiments.base import Experiment
 from collections import Counter
 import random
 import time
-from pathlib import Path
 
-import pandas as pd
 import pygame
 
 class DMS(Experiment):
@@ -129,7 +127,7 @@ class DMS(Experiment):
             
             ## GET STIMULI
             idx = trial%len(self.stimuli)
-            imga, imgb = self.stimuli[idx]['A'], self.stimuli[idx]['A']
+            imga, imgb = self.stimuli[idx]['A'], self.stimuli[idx]['B']
             sample = self.get_image_stimulus(imga,**self.conditions[condition]['sample'])
             match = self.get_image_stimulus(imga,**self.conditions[condition]['match'])
             nonmatch = self.get_image_stimulus(imgb,**self.conditions[condition]['nonmatch'])
