@@ -8,9 +8,9 @@ from pathlib import Path
 import pandas as pd
 import pygame
 
-class DNMS(Experiment):
-    keys = 'trial','trial_start_time','condition','sample_touch','sample_RT','test_touch','test_RT','sample_duration','delay_duration','test_duration'
-    name = 'Memory'
+class DMS(Experiment):
+    keys = 'trial','trial_start_time','condition','sample_touch','sample_RT','test_touch','test_RT','sample_duration','delay_duration','test_duration','imga','imgb'
+    name = 'DMS'
     info_background = (0,0,0)
 
     def _run_delay(self,duration):
@@ -51,7 +51,7 @@ class DNMS(Experiment):
     def _show_test(self,match,nonmatch,test_duration,correct_duration,incorrect_duration,rel_tol=2,sample=None):
         # match = self.items[self.conditions[condition]['match']]
         # nonmatch = self.items[self.conditions[condition]['nonmatch']]
-        tolerance = nonmatch['radius']*rel_tol
+        tolerance = match['radius']*rel_tol
 
         self.screen.fill(self.background)
         for item in [match, nonmatch]:
@@ -70,11 +70,11 @@ class DNMS(Experiment):
             if tap is None:
                 continue
             else:
-                if abs(nonmatch['loc'][0]-tap[0])<tolerance and abs(nonmatch['loc'][1]-tap[1])<tolerance:
+                if abs(match['loc'][0]-tap[0])<tolerance and abs(match['loc'][1]-tap[1])<tolerance:
                     info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
                     #reward and show correct for correct duration
                     self.screen.fill(self.background)
-                    self.draw_stimulus(**nonmatch)
+                    self.draw_stimulus(**match)
                     self.flip()
                     self.good_monkey()
                     start_time = time.time()
@@ -136,7 +136,10 @@ class DNMS(Experiment):
             ## GET TIMING INFO
             sample_duration, delay_duration, test_duration = self.get_duration('sample'), self.get_duration('delay'), self.get_duration('test')
             trial_start_time = time.time() - self.start_time
-            trialdata = dict(trial=trial,trial_start_time=trial_start_time,condition=condition,sample_touch=0,test_touch=0,sample_RT=0,test_RT=0,sample_duration=sample_duration,delay_duration=delay_duration,test_duration=test_duration,imga=imga,imgb=imgb)
+            trialdata = dict(
+                trial=trial,trial_start_time=trial_start_time,condition=condition,
+                sample_touch=0,test_touch=0,sample_RT=0,test_RT=0,sample_duration=sample_duration,
+                delay_duration=delay_duration,test_duration=test_duration,imga=imga,imgb=imgb)
 
             self.TTLout['sync'].pulse(.1)
             self.camera.start_recording((self.data_dir/f'{trial}.h264').as_posix())
@@ -154,7 +157,12 @@ class DNMS(Experiment):
                 if delay_result is None:
                     break
                 if delay_result.get('touch',0) >= 0: #no matter what
-                    test_result = self._show_test(match, nonmatch, test_duration, self.get_duration('correct'), self.get_duration('incorrect'), sample=sample)
+                    test_result = self._show_test(
+                        match, nonmatch, test_duration, 
+                        self.get_duration('correct'), 
+                        self.get_duration('incorrect'), 
+                        sample=sample
+                    )
                     if test_result is None:
                         break
                     trialdata.update({
