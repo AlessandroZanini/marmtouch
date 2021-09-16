@@ -101,7 +101,8 @@ class DMS(Experiment):
 
     def run(self):
         self.initialize()
-        self.stimuli = pd.read_csv(self.items, index_col=0)
+        # self.stimuli = pd.read_csv(self.items, index_col=0)
+        self.stimuli = self.parse_csv(self.items)
 
         self.info = {condition: Counter() for condition in self.conditions.keys()}
 
@@ -128,7 +129,7 @@ class DMS(Experiment):
             
             ## GET STIMULI
             idx = trial%len(self.stimuli)
-            imga, imgb = self.stimuli.loc[idx, 'A'], self.stimuli.loc[idx, 'B']
+            imga, imgb = self.stimuli[idx]['A'], self.stimuli[idx]['A']
             sample = self.get_image_stimulus(imga,**self.conditions[condition]['sample'])
             match = self.get_image_stimulus(imga,**self.conditions[condition]['match'])
             nonmatch = self.get_image_stimulus(imgb,**self.conditions[condition]['nonmatch'])
