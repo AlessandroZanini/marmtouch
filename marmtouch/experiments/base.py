@@ -235,3 +235,29 @@ class Experiment:
     def flip(self):
         self.screen.blit(self.info_screen,(0,0))
         pygame.display.update()
+    def _start_trial(self, start_stimulus=None,duration=1e4,rel_tol=2):
+        if start_stimulus is None:
+            start_stimulus = dict(
+                type='circle', 
+                color=(100,100,255), 
+                loc=(900,400),
+                radius=100
+            )
+        tolerance = start_stimulus['radius']*rel_tol
+
+        self.screen.fill(self.background)
+        self.draw_stimulus(**start_stimulus)
+        self.flip()
+
+        start_time = current_time = time.time()
+        info = {'touch':0,'RT':0}
+        while (current_time-start_time) < duration:
+            current_time = time.time()
+            tap = self.get_first_tap(self.parse_events())
+            if not self.running:
+                return
+            if tap is not None:
+                if abs(start_stimulus['loc'][0]-tap[0])<tolerance and abs(start_stimulus['loc'][1]-tap[1])<tolerance:
+                    info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
+                    return info
+

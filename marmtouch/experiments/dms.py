@@ -52,8 +52,9 @@ class DMS(Experiment):
         tolerance = match['radius']*rel_tol
 
         self.screen.fill(self.background)
-        for item in [match, nonmatch]:
-            self.draw_stimulus(**item)
+        self.draw_stimulus(**match)
+        if nonmatch is not None:
+            self.draw_stimulus(**nonmatch)
         if sample is not None:
             self.draw_stimulus(**sample)
         self.flip()
@@ -130,7 +131,9 @@ class DMS(Experiment):
             imga, imgb = self.stimuli[idx]['A'], self.stimuli[idx]['B']
             sample = self.get_image_stimulus(imga,**self.conditions[condition]['sample'])
             match = self.get_image_stimulus(imga,**self.conditions[condition]['match'])
-            nonmatch = self.get_image_stimulus(imgb,**self.conditions[condition]['nonmatch'])
+            nonmatch = self.conditions[condition]['nonmatch']
+            if nonmatch is not None:
+                nonmatch = self.get_image_stimulus(imgb,**nonmatch)
 
             ## GET TIMING INFO
             sample_duration, delay_duration, test_duration = self.get_duration('sample'), self.get_duration('delay'), self.get_duration('test')
@@ -140,6 +143,8 @@ class DMS(Experiment):
                 sample_touch=0,test_touch=0,sample_RT=0,test_RT=0,sample_duration=sample_duration,
                 delay_duration=delay_duration,test_duration=test_duration,imga=imga,imgb=imgb)
 
+            start_result = self._start_trial()
+            if start_result is None: continue
             self.TTLout['sync'].pulse(.1)
             self.camera.start_recording((self.data_dir/f'{trial}.h264').as_posix())
 
