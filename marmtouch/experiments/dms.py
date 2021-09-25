@@ -1,6 +1,7 @@
 from marmtouch.experiments.base import Experiment
 
 from collections import Counter
+from itertools import product
 import random
 import time
 
@@ -103,7 +104,9 @@ class DMS(Experiment):
         # self.stimuli = pd.read_csv(self.items, index_col=0)
         self.stimuli = self.parse_csv(self.items)
 
-        self.info = {condition: Counter() for condition in self.conditions.keys()}
+        delay_times = [self.timing['delay']] if isinstance(self.timing['delay'], (int, float)) else self.timing['delay']
+        combinations = product(delay_times, self.conditions.keys())
+        self.info = {(condition, delay): Counter() for (delay, condition) in combinations}
 
         trial = 0
         self.running = True
