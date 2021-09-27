@@ -10,7 +10,7 @@ import pygame
 
 class Basic(Experiment):
     keys = 'trial','trial_start_time','condition','target_touch','target_RT','target_duration','correct_duration','incorrect_duration'
-    name = 'Memory'
+    name = 'Basic'
     info_background = (0,0,0)
 
     def _show_target(self,stimuli,timing,rel_tol=2):
@@ -19,6 +19,11 @@ class Basic(Experiment):
 
         self.screen.fill(self.background)
         self.draw_stimulus(**stimuli['target'])
+
+        distractors = stimuli.get('distractors')
+        if distractors is not None:
+            for distractor in distractors:
+                self.draw_stimulus(**distractor)
         self.flip()
 
         start_time = current_time = time.time()
@@ -80,6 +85,12 @@ class Basic(Experiment):
             #initialize trial parameters
             condition = random.choice(list(self.conditions.keys()))
             stimuli = {stimulus: self.get_item(self.conditions[condition][stimulus]) for stimulus in ['target','correct','incorrect']}
+
+            distractors = self.conditions[condition].get('distractors')
+            if distractors is not None:
+                for distractor in distractors:
+                    stimuli[distractor] = self.get_item(distractor)
+
             timing = {f"{event}_duration": self.get_duration(event) for event in ['target','correct','incorrect']}
             trial_start_time = time.time() - self.start_time
             trialdata = dict(trial=trial,trial_start_time=trial_start_time,condition=condition,target_touch=0,target_RT=0,**timing)

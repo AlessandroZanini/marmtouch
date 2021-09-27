@@ -19,7 +19,7 @@ def _transfer_files(videos_directory, server_path, verbose=True):
     logger_path = server_session_path / f'{session}.log'
     copy_no = 1
     while server_session_path.is_dir():
-        print(f'Folder already exists at loc: {seever_session_path.as_posix()}')
+        print(f'Folder already exists at loc: {server_session_path.as_posix()}')
         server_session_path = server_path / f"{session} ({copy_no})"
         copy_no += 1
     try:

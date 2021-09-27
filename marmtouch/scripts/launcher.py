@@ -133,7 +133,7 @@ class Launcher:
         params = yaml.safe_load(open(config))
         session = time.strftime("%Y-%m-%d_%H-%M-%S")
         data_dir = Path('/home/pi/Touchscreen', session)
-        if task.name in ['basic','random']:
+        if task.name in ['basic','random','reversal']:
             from marmtouch.experiments.basic import Basic
             Basic(data_dir, params).run()
         elif task.name in ['memory','cued']:
