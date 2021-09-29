@@ -184,14 +184,14 @@ class DMS(Experiment):
             self.camera.stop_recording()
             self.dump_trialdata(trialdata)
             trial += 1
-            self.info[condition][outcome] += 1
+            self.info[condition, delay_duration][outcome] += 1
             if self.blocks is not None:
                 self.update_condition_list(correct=(outcome==1))
 
     def update_info(self,trial):
         info = f"{self.params['monkey']} {self.params['task']} Trial#{trial}\n"
-        for condition, condition_info in self.info.items():
-            info += f"Condition {condition}: {condition_info[1]: 3d} correct, {condition_info[2]: 3d} incorrect\n"
+        for (condition, delay), condition_info in self.info.items():
+            info += f"Condition {condition}, Delay: {delay}: {condition_info[1]: 3d} correct, {condition_info[2]: 3d} incorrect\n"
         overall = sum(self.info.values(),Counter())
         info += f"Overall: {overall[1]: 3d} correct, {overall[2]: 3d} incorrect, {overall[0]: 3d} no response\n"
         
@@ -200,4 +200,8 @@ class DMS(Experiment):
             txt = self.font.render(line,True,pygame.Color('GREEN'))
             txt = pygame.transform.rotate(txt,90)
             self.info_screen.blit(txt, (idx*30,30))
+
+        if self.data_dir is not None:
+            self.info_screen.blit(self.session_txt, self.session_txt_rect)
+
         self.flip()

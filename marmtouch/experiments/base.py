@@ -203,6 +203,15 @@ class Experiment:
 
         if self.camera_preview:
             self.camera.start_preview(fullscreen=False,window=self.camera_preview_window)
+        
+        if self.data_dir is not None:
+            session_name = self.data_dir.name
+            if self.debug_mode:
+                session_name += ' DEBUG MODE'
+            text_colour = pygame.Color('RED') if self.debug_mode else pygame.Color('GREEN')
+            session_txt = self.session_font.render(session_name, True, text_colour)
+            self.session_txt = pygame.transform.rotate(session_txt,90)
+            self.session_txt_rect = session_txt.get_rect(bottomleft=(0,800-30))
 
     @staticmethod
     def parse_csv(path):
@@ -287,13 +296,6 @@ class Experiment:
             self.info_screen.blit(txt, (idx*30,30))
 
         if self.data_dir is not None:
-            session_name = self.data_dir.name
-            if self.debug_mode:
-                session_name += ' DEBUG MODE'
-            text_colour = pygame.Color('RED') if self.debug_mode else pygame.Color('GREEN')
-            session_txt = self.session_font.render(session_name, True, text_colour)
-            session_txt = pygame.transform.rotate(session_txt,90)
-            session_txt_rect = session_txt.get_rect(bottomleft=(0,800-30))
-            self.info_screen.blit(session_txt, session_txt_rect)
+            self.info_screen.blit(self.session_txt, self.session_txt_rect)
 
         self.flip()
