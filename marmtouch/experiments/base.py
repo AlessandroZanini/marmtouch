@@ -31,9 +31,10 @@ class Experiment:
     info_background = (0,0,0)
     _image_cache_max_len = 20
     system_config_path = '/home/pi/marmtouch_system_config.yaml'
-    def __init__(self,data_dir,params,TTLout={'reward':11,'sync':16},camera=True,camera_preview=False,camera_preview_window=(0,600,320,200), fullscreen=True):
+    def __init__(self,data_dir,params,TTLout={'reward':11,'sync':16},camera=True,camera_preview=False,camera_preview_window=(0,600,320,200),fullscreen=True,debug_mode=False):
         system_params = yaml.safe_load(open(Path(self.system_config_path)))
         params.update(system_params)
+        self.debug_mode = debug_mode
         if data_dir is None:
             self.data_dir = None
             self.logger = util.getLogger()
@@ -78,13 +79,13 @@ class Experiment:
         self.behdata = []
         self.events = []
 
-        util.setup_screen()
         self.logger.info(f'experiment initialized')
 
     def good_monkey(self):
         self.TTLout['reward'].pulse(**self.reward)
 
     def get_duration(self, name):
+        #TODO: implement block specific timing?
         duration = self.timing[name]
         if isinstance(duration, (int, float)):
             return duration
@@ -103,7 +104,7 @@ class Experiment:
                 yaml.dump(self.events, f)
         self.running = False
         pygame.quit()
-    
+
     def parse_events(self):
         event_time = time.time() - self.start_time
         event_stack = []
@@ -122,7 +123,7 @@ class Experiment:
                     self.graceful_exit()
         self.events.extend(event_stack)
         return event_stack
-    
+
     @staticmethod
     def get_first_tap(event_stack):
         taps = []
@@ -185,26 +186,31 @@ class Experiment:
 
     def initialize(self):
         pygame.init()
-        pygame.mouse.set_visible(1)
-        pygame.mouse.set_cursor((8,8),(0,0),(0,0,0,0,0,0,0,0),(0,0,0,0,0,0,0,0))
+        if not self.debug_mode:
+            util.setup_screen()
+            pygame.mouse.set_visible(1)
+            pygame.mouse.set_cursor((8,8),(0,0),(0,0,0,0,0,0,0,0),(0,0,0,0,0,0,0,0))
         if self.fullscreen:
             self.screen = pygame.display.set_mode((0,0),pygame.FULLSCREEN)
         else:
-            self.screen = pygame.display.set_mode((1200,750))
+            self.screen = pygame.display.set_mode((1200,800))
         self.info_screen = pygame.Surface((350,800))
         self.screen.fill(self.background)
         self.info_screen.fill(self.info_background)
-        self.font = pygame.font.Font(None,20)
+        self.font = pygame.font.Font(None,30)
+        self.session_font = pygame.font.Font(None,40)
         self.flip()
 
         if self.camera_preview:
             self.camera.start_preview(fullscreen=False,window=self.camera_preview_window)
+
     @staticmethod
     def parse_csv(path):
         lines = open(path, 'r').read().splitlines()
         headers = lines.pop(0).split(',')
         data = [dict(zip(headers, line.split(','))) for line in lines]
         return data
+
     def draw_stimulus(self,**params):
         """ Draws stimuli on screen
         
@@ -215,26 +221,32 @@ class Experiment:
         if params['type'] == 'circle':
             pygame.draw.circle(self.screen, params['color'], params['loc'], params['radius'])
         elif params['type'] == 'image':
-            self.screen.blit(params['image'], params['loc'])
+            img = params['image']
+            img_rect = img.get_rect(center=params['loc'])
+            self.screen.blit(img, img_rect)
+
     def get_image_stimulus(self,path,**params):
         params['type'] = 'image'
         image = self.images.get(path)
         if image is None:
-            self.images[path] = params['image'] = pygame.image.load(path)
+            self.images[path] = params['image'] = pygame.image.load(path).convert()
             if len(self.images) > self._image_cache_max_len:
                 self.images.pop(list(self.images.keys())[0])
         else:
             params['image'] = image
         return params
+
     def get_item(self, item_key=None, **params):
         if item_key is not None:
             params.update(self.items[item_key])
         if params['type'] == 'image':
             params = self.get_image_stimulus(**params)
         return params
+
     def flip(self):
         self.screen.blit(self.info_screen,(0,0))
         pygame.display.update()
+
     def _start_trial(self, start_stimulus=None,duration=1e4,rel_tol=2):
         if start_stimulus is None:
             start_stimulus = dict(
@@ -261,3 +273,27 @@ class Experiment:
                     info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
                     return info
 
+    def update_info(self, trial):
+        info = f"{self.params['monkey']} {self.params['task']} Trial#{trial}\n"
+        for condition, condition_info in self.info.items():
+            info += f"Condition {condition}: {condition_info[1]: 3d} correct, {condition_info[2]: 3d} incorrect\n"
+        overall = sum(self.info.values(),Counter())
+        info += f"Overall: {overall[1]: 3d} correct, {overall[2]: 3d} incorrect, {overall[0]: 3d} no response\n"
+
+        self.info_screen.fill(self.info_background)
+        for idx, line in enumerate(info.splitlines()):
+            txt = self.font.render(line, True, pygame.Color('GREEN'))
+            txt = pygame.transform.rotate(txt,90)
+            self.info_screen.blit(txt, (idx*30,30))
+
+        if self.data_dir is not None:
+            session_name = self.data_dir.name
+            if self.debug_mode:
+                session_name += ' DEBUG MODE'
+            text_colour = pygame.Color('RED') if self.debug_mode else pygame.Color('GREEN')
+            session_txt = self.session_font.render(session_name, True, text_colour)
+            session_txt = pygame.transform.rotate(session_txt,90)
+            session_txt_rect = session_txt.get_rect(bottomleft=(0,800-30))
+            self.info_screen.blit(session_txt, session_txt_rect)
+
+        self.flip()

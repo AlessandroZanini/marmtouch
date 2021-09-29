@@ -3,3 +3,5 @@ marmtouch/_version.py
 **/*.egg-info
 **/__pycache__
 configs
+test
+.vscode

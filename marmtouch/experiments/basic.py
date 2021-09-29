@@ -88,8 +88,7 @@ class Basic(Experiment):
 
             distractors = self.conditions[condition].get('distractors')
             if distractors is not None:
-                for distractor in distractors:
-                    stimuli[distractor] = self.get_item(distractor)
+                stimuli['distractors'] = [self.get_item(distractor) for distractor in distractors]
 
             timing = {f"{event}_duration": self.get_duration(event) for event in ['target','correct','incorrect']}
             trial_start_time = time.time() - self.start_time
@@ -117,17 +116,3 @@ class Basic(Experiment):
             self.dump_trialdata(trialdata)
             trial += 1
             self.info[condition][trialdata['target_touch']] += 1
-
-    def update_info(self,trial):
-        info = f"{self.params['monkey']} {self.params['task']} Trial#{trial}\n"
-        for condition, condition_info in self.info.items():
-            info += f"Condition {condition}: {condition_info[1]: 3d} correct, {condition_info[2]: 3d} incorrect\n"
-        overall = sum(self.info.values(),Counter())
-        info += f"Overall: {overall[1]: 3d} correct, {overall[2]: 3d} incorrect, {overall[0]: 3d} no response\n"
-        
-        self.info_screen.fill(self.info_background)
-        for idx, line in enumerate(info.splitlines()):
-            txt = self.font.render(line,True,pygame.Color('GREEN'))
-            txt = pygame.transform.rotate(txt,90)
-            self.info_screen.blit(txt, (idx*30,30))
-        self.flip()
