@@ -211,7 +211,7 @@ class Experiment:
             text_colour = pygame.Color('RED') if self.debug_mode else pygame.Color('GREEN')
             session_txt = self.session_font.render(session_name, True, text_colour)
             self.session_txt = pygame.transform.rotate(session_txt,90)
-            self.session_txt_rect = session_txt.get_rect(bottomleft=(0,800-30))
+            self.session_txt_rect = self.session_txt.get_rect(bottomleft=(0,800-30))
 
     @staticmethod
     def parse_csv(path):
