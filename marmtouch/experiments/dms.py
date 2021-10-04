@@ -8,7 +8,7 @@ import time
 import pygame
 
 class DMS(Experiment):
-    keys = 'trial','trial_start_time','condition','sample_touch','sample_RT','test_touch','test_RT','sample_duration','delay_duration','test_duration','imga','imgb'
+    keys = 'trial','trial_start_time','condition','sample_touch','sample_RT','test_touch','test_RT','sample_duration','delay_duration','test_duration','match_img','nonmatch_img'
     name = 'DMS'
     info_background = (0,0,0)
 
@@ -27,8 +27,8 @@ class DMS(Experiment):
                 info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
         return info
 
-    def _show_sample(self,sample,duration,rel_tol=2):
-        # sample = self.items[self.conditions[condition]['sample']]
+    def _show_sample(self,stimuli,timing,rel_tol=2):
+        sample = stimuli['sample']
         tolerance = sample['radius']*rel_tol
 
         self.screen.fill(self.background)
@@ -37,7 +37,7 @@ class DMS(Experiment):
 
         start_time = current_time = time.time()
         info = {'touch':0,'RT':0}
-        while (current_time-start_time) < duration:
+        while (current_time-start_time) < timing['sample_duration']:
             current_time = time.time()
             tap = self.get_first_tap(self.parse_events())
             if not self.running:
@@ -47,22 +47,18 @@ class DMS(Experiment):
                     info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
         return info
 
-    def _show_test(self,match,nonmatch,test_duration,correct_duration,incorrect_duration,rel_tol=2,sample=None):
-        # match = self.items[self.conditions[condition]['match']]
-        # nonmatch = self.items[self.conditions[condition]['nonmatch']]
-        tolerance = match['radius']*rel_tol
-
+    def _show_test(self,stimuli,timing,rel_tol=2,distractor=True,sample=False):
+        sample, target, distractor = stimuli['sample'], stimuli['target'], stimuli['distractor']
+        tolerance = target['radius']*rel_tol
         self.screen.fill(self.background)
-        self.draw_stimulus(**match)
-        if nonmatch is not None:
-            self.draw_stimulus(**nonmatch)
-        if sample is not None:
-            self.draw_stimulus(**sample)
+        self.draw_stimulus(**target)
+        if distractor: self.draw_stimulus(**distractor)
+        if sample: self.draw_stimulus(**sample)
         self.flip()
 
         start_time = current_time = time.time()
         info = {'touch':0,'RT':0}
-        while (current_time-start_time) < test_duration:
+        while (current_time-start_time) < timing['test_duration']:
             current_time = time.time()
             tap = self.get_first_tap(self.parse_events())
             if not self.running:
@@ -70,15 +66,15 @@ class DMS(Experiment):
             if tap is None:
                 continue
             else:
-                if abs(match['loc'][0]-tap[0])<tolerance and abs(match['loc'][1]-tap[1])<tolerance:
+                if abs(target['loc'][0]-tap[0])<tolerance and abs(target['loc'][1]-tap[1])<tolerance:
                     info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
                     #reward and show correct for correct duration
                     self.screen.fill(self.background)
-                    self.draw_stimulus(**match)
+                    self.draw_stimulus(**target)
                     self.flip()
                     self.good_monkey()
                     start_time = time.time()
-                    while (time.time()-start_time) < correct_duration: 
+                    while (time.time()-start_time) < timing['correct_duration']: 
                         self.parse_events()
                     #clear screen and exit
                     self.screen.fill(self.background)
@@ -90,7 +86,7 @@ class DMS(Experiment):
                     self.screen.fill(self.background)
                     self.flip()
                     start_time = time.time()
-                    while (time.time()-start_time) < incorrect_duration:
+                    while (time.time()-start_time) < timing['incorrect_duration']:
                         self.parse_events()
                     #clear screen and exit
                     self.screen.fill(self.background)
@@ -99,9 +95,22 @@ class DMS(Experiment):
         #else: #no response?
         return info
 
+    def get_stimuli(self, trial, condition):
+        ## GET STIMULI
+        idx = trial%len(self.stimuli)
+        match_img, nonmatch_img = self.stimuli[idx]['A'], self.stimuli[idx]['B']
+        sample = self.get_image_stimulus(match_img,**self.conditions[condition]['sample'])
+        match = self.conditions[condition]['match']
+        if match is not None:
+            match = self.get_image_stimulus(match_img,**match)
+        nonmatch = self.conditions[condition]['nonmatch']
+        if nonmatch is not None:
+            nonmatch = self.get_image_stimulus(nonmatch_img,**nonmatch)
+        stimuli = {'sample': sample, 'target': match, 'distractor': nonmatch}
+        return stimuli, match_img, nonmatch_img
+
     def run(self):
         self.initialize()
-        # self.stimuli = pd.read_csv(self.items, index_col=0)
         self.stimuli = self.parse_csv(self.items)
 
         delay_times = [self.timing['delay']] if isinstance(self.timing['delay'], (int, float)) else self.timing['delay']
@@ -122,29 +131,27 @@ class DMS(Experiment):
                     return
             if not self.running:
                 return
-            
+
             #initialize trial parameters
             if self.blocks is None:
                 condition = random.choice(list(self.conditions.keys()))
             else:
                 condition = self.get_condition()
-            
-            ## GET STIMULI
-            idx = trial%len(self.stimuli)
-            imga, imgb = self.stimuli[idx]['A'], self.stimuli[idx]['B']
-            sample = self.get_image_stimulus(imga,**self.conditions[condition]['sample'])
-            match = self.get_image_stimulus(imga,**self.conditions[condition]['match'])
-            nonmatch = self.conditions[condition]['nonmatch']
-            if nonmatch is not None:
-                nonmatch = self.get_image_stimulus(imgb,**nonmatch)
+
+            stimuli, match_img, nonmatch_img = self.get_stimuli(trial, condition)
 
             ## GET TIMING INFO
-            sample_duration, delay_duration, test_duration = self.get_duration('sample'), self.get_duration('delay'), self.get_duration('test')
+            timing = {
+                f'{epoch}_duration': self.get_duration(epoch) 
+                for epoch in ['sample', 'delay', 'test', 'correct', 'incorrect']
+            }
             trial_start_time = time.time() - self.start_time
             trialdata = dict(
                 trial=trial,trial_start_time=trial_start_time,condition=condition,
-                sample_touch=0,test_touch=0,sample_RT=0,test_RT=0,sample_duration=sample_duration,
-                delay_duration=delay_duration,test_duration=test_duration,imga=imga,imgb=imgb)
+                sample_touch=0,sample_RT=0,test_touch=0,test_RT=0,
+                match_img=match_img,nonmatch_img=nonmatch_img,
+                **timing
+            )
 
             start_result = self._start_trial()
             if start_result is None: continue
@@ -152,23 +159,24 @@ class DMS(Experiment):
             self.camera.start_recording((self.data_dir/f'{trial}.h264').as_posix())
 
             #run trial
-            sample_result = self._show_sample(sample, sample_duration)
+            sample_result = self._show_sample(stimuli, timing)
             if sample_result is None:
                 break
             if sample_result['touch'] >= 0: #no matter what
-                if delay_duration < 0: #if delay duration is negative, skip delay and keep the sample on during test phase
+                if timing['delay_duration'] < 0: #if delay duration is negative, skip delay and keep the sample on during test phase
                     delay_result = dict(touch=0,RT=0)
+                    sample = True
                 else:
-                    delay_result = self._run_delay(delay_duration)
-                    sample = None
+                    delay_result = self._run_delay(timing['delay_duration'])
+                    sample = False
                 if delay_result is None:
                     break
                 if delay_result.get('touch',0) >= 0: #no matter what
                     test_result = self._show_test(
-                        match, nonmatch, test_duration, 
-                        self.get_duration('correct'), 
-                        self.get_duration('incorrect'), 
-                        sample=sample
+                        stimuli, 
+                        timing,
+                        distractor = stimuli['distractor'] is not None, 
+                        sample = sample
                     )
                     if test_result is None:
                         break
@@ -187,7 +195,7 @@ class DMS(Experiment):
             self.camera.stop_recording()
             self.dump_trialdata(trialdata)
             trial += 1
-            self.info[condition, delay_duration][outcome] += 1
+            self.info[condition, timing['delay_duration']][outcome] += 1
             if self.blocks is not None:
                 self.update_condition_list(correct=(outcome==1))
 
