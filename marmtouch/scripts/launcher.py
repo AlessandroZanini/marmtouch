@@ -139,9 +139,12 @@ class Launcher:
         elif task.name in ['memory','cued']:
             from marmtouch.experiments.memory import Memory
             Memory(data_dir, params).run()
-        elif task.name == 'dms':
+        elif task.name == 'match':
             from marmtouch.experiments.dms import DMS
             DMS(data_dir, params).run()
+        elif task.name == 'nonmatch':
+            from marmtouch.experiments.dnms import DNMS
+            DNMS(data_dir, params).run()
         else:
             raise ValueError(f'Task {task.name} not supported!')
         self.exit()
