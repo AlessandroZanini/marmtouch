@@ -140,7 +140,7 @@ class Experiment:
             f.write(self.sep.join([str(trialdata.get(key, 'nan')) for key in self.keys])+'\n')
         self.behdata.append(trialdata)
 
-    def _init_block(self, block_info):
+    def init_block(self, block_info):
         self.active_block = block_info
         method = block_info.get('method', 'random')
         conditions = block_info['conditions']
@@ -159,7 +159,7 @@ class Experiment:
 
     def get_condition(self):
         if not self.condition_list:
-            self._init_block(next(self.blocks))
+            self.init_block(next(self.blocks))
         self.condition = self.condition_list.pop(0)
         return self.condition
 
@@ -233,6 +233,11 @@ class Experiment:
             img = params['image']
             img_rect = img.get_rect(center=params['loc'])
             self.screen.blit(img, img_rect)
+        if self.debug_mode and 'window' in params:
+            w, h = params['window']
+            window = pygame.Rect(0, 0, w, h)
+            window.center = params['loc']
+            pygame.draw.rect(self.screen, pygame.Color('RED'), window, 4)
 
     def get_image_stimulus(self,path,**params):
         params['type'] = 'image'
@@ -262,9 +267,9 @@ class Experiment:
                 type='circle', 
                 color=(100,100,255), 
                 loc=(900,400),
-                radius=100
+                radius=100,
+                window=(300,300)
             )
-        tolerance = start_stimulus['radius']*rel_tol
 
         self.screen.fill(self.background)
         self.draw_stimulus(**start_stimulus)
@@ -278,7 +283,7 @@ class Experiment:
             if not self.running:
                 return
             if tap is not None:
-                if abs(start_stimulus['loc'][0]-tap[0])<tolerance and abs(start_stimulus['loc'][1]-tap[1])<tolerance:
+                if self.was_tapped(start_stimulus['loc'], tap, start_stimulus['window']):
                     info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
                     return info
 
@@ -299,3 +304,24 @@ class Experiment:
             self.info_screen.blit(self.session_txt, self.session_txt_rect)
 
         self.flip()
+
+    def was_tapped(self, target, tap, window):
+        """Check if tap was in a window around target location
+
+        Parameters
+        ----------
+        target : list-like (2,)
+            (x, y) coordinates for center of target location
+        tap : list-like (2,)
+            (x, y) coordinates of the tap
+        window : list-like (2,)
+            (width, height) of window centered at target
+
+        Returns
+        -------
+        bool
+            whether or not the tap was in the window
+        """
+        winx, winy = window
+        return abs(tap[0] - target[0]) < (winx/2) \
+            and abs(tap[1] - target[1]) < (winy/2)

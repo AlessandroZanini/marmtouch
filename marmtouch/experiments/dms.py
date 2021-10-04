@@ -27,9 +27,8 @@ class DMS(Experiment):
                 info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
         return info
 
-    def _show_sample(self,stimuli,timing,rel_tol=2):
+    def _show_sample(self,stimuli,timing):
         sample = stimuli['sample']
-        tolerance = sample['radius']*rel_tol
 
         self.screen.fill(self.background)
         self.draw_stimulus(**sample)
@@ -43,13 +42,12 @@ class DMS(Experiment):
             if not self.running:
                 return
             if tap is not None:
-                if abs(sample['loc'][0]-tap[0])<tolerance and abs(sample['loc'][1]-tap[1])<tolerance:
+                if self.was_tapped(sample['loc'], tap, sample['window']):
                     info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
         return info
 
-    def _show_test(self,stimuli,timing,rel_tol=2,distractor=True,sample=False):
+    def _show_test(self,stimuli,timing,distractor=True,sample=False):
         sample, target, distractor = stimuli['sample'], stimuli['target'], stimuli['distractor']
-        tolerance = target['radius']*rel_tol
         self.screen.fill(self.background)
         self.draw_stimulus(**target)
         if distractor: self.draw_stimulus(**distractor)
@@ -66,7 +64,7 @@ class DMS(Experiment):
             if tap is None:
                 continue
             else:
-                if abs(target['loc'][0]-tap[0])<tolerance and abs(target['loc'][1]-tap[1])<tolerance:
+                if self.was_tapped(target['loc'], tap, target['window']):
                     info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
                     #reward and show correct for correct duration
                     self.screen.fill(self.background)

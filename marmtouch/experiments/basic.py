@@ -13,10 +13,7 @@ class Basic(Experiment):
     name = 'Basic'
     info_background = (0,0,0)
 
-    def _show_target(self,stimuli,timing,rel_tol=2):
-
-        tolerance = stimuli['target']['radius']*rel_tol
-
+    def _show_target(self,stimuli,timing):
         self.screen.fill(self.background)
         self.draw_stimulus(**stimuli['target'])
 
@@ -36,7 +33,7 @@ class Basic(Experiment):
             if tap is None:
                 continue
             else:
-                if abs(stimuli['target']['loc'][0]-tap[0])<tolerance and abs(stimuli['target']['loc'][1]-tap[1])<tolerance:
+                if self.was_tapped(stimuli['target']['loc'], tap, stimuli['target']['window']):
                     info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
                     if timing['correct_duration']:
                         self.screen.fill(self.background)

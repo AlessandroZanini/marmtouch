@@ -27,9 +27,7 @@ class Memory(Experiment):
                 info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
         return info
 
-    def _show_cue(self,stimuli,timing,rel_tol=2):
-        tolerance = stimuli['cue']['radius']*rel_tol
-
+    def _show_cue(self,stimuli,timing):
         self.screen.fill(self.background)
         self.draw_stimulus(**stimuli['cue'])
         self.flip()
@@ -42,13 +40,11 @@ class Memory(Experiment):
             if not self.running:
                 return
             if tap is not None:
-                if abs(stimuli['cue']['loc'][0]-tap[0])<tolerance and abs(stimuli['cue']['loc'][1]-tap[1])<tolerance:
+                if self.was_tapped(stimuli['cue']['loc'], tap, stimuli['cue']['window']):
                     info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
         return info
 
-    def _show_sample(self,stimuli,timing,rel_tol=2):
-        tolerance = stimuli['cue']['radius']*rel_tol
-
+    def _show_sample(self,stimuli,timing):
         self.screen.fill(self.background)
         for target in stimuli['targets']:
             self.draw_stimulus(**target)
@@ -64,7 +60,7 @@ class Memory(Experiment):
             if tap is None:
                 continue
             else:
-                if abs(stimuli['cue']['loc'][0]-tap[0])<tolerance and abs(stimuli['cue']['loc'][1]-tap[1])<tolerance:
+                if self.was_tapped(stimuli['cue']['loc'], tap, stimuli['cue']['window']):
                     info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
                     #reward and show correct for correct duration
                     self.screen.fill(self.background)
