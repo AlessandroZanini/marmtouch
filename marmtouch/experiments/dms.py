@@ -78,7 +78,7 @@ class DMS(Experiment):
                     self.screen.fill(self.background)
                     self.flip()
                     break
-                else:
+                elif self.was_tapped(distractor['loc'], tap, distractor['window']):
                     info = {'touch':2, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
                     #show incorrect for incorrect duration
                     self.screen.fill(self.background)
@@ -90,6 +90,8 @@ class DMS(Experiment):
                     self.screen.fill(self.background)
                     self.flip()
                     break
+                else: # if tapped outside of the two items
+                    continue
         #else: #no response?
         return info
 

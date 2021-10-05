@@ -9,7 +9,7 @@ from pathlib import Path
 import pygame
 
 class Memory(Experiment):
-    keys = 'trial','trial_start_time','condition','cue_touch','cue_RT','sample_touch','sample_RT','cue_duration','delay_duration','sample_duration','correct_duration','incorrect_duration'
+    keys = 'trial','trial_start_time','condition','cue_touch','cue_RT','sample_touch','sample_RT','cue_duration','delay_duration','sample_duration','correct_duration','incorrect_duration','tapped'
     name = 'Memory'
     info_background = (0,0,0)
     def _run_delay(self,duration):
@@ -46,7 +46,7 @@ class Memory(Experiment):
 
     def _show_sample(self,stimuli,timing):
         self.screen.fill(self.background)
-        for target in stimuli['targets']:
+        for target in stimuli['targets'].values():
             self.draw_stimulus(**target)
         self.flip()
 
@@ -73,7 +73,6 @@ class Memory(Experiment):
                     #clear screen and exit
                     self.screen.fill(self.background)
                     self.flip()
-                    break
                 else:
                     info = {'touch':2, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
                     #show incorrect for incorrect duration
@@ -86,7 +85,14 @@ class Memory(Experiment):
                     #clear screen and exit
                     self.screen.fill(self.background)
                     self.flip()
-                    break
+
+                for name, target in stimuli['targets'].items():
+                    if self.was_tapped(target['loc'], tap, target['window']):
+                        info['tapped'] = name
+                        break
+                else:
+                    info['tapped'] = 'outside'
+                break
         #else: #no response?
         return info
 
@@ -119,11 +125,15 @@ class Memory(Experiment):
                 condition = self.get_condition()
 
             stimuli = {stimulus: self.get_item(self.conditions[condition][stimulus]) for stimulus in ['cue','correct','incorrect']}
-            stimuli['targets'] = [self.get_item(target) for target in self.conditions[condition]['targets']]
+            stimuli['targets'] = {target: self.get_item(target) for target in self.conditions[condition]['targets']}
 
             timing = {f"{event}_duration": self.get_duration(event) for event in ['cue','delay','sample','correct','incorrect']}
             trial_start_time = time.time() - self.start_time
-            trialdata = dict(trial=trial,trial_start_time=trial_start_time,condition=condition,cue_touch=0,sample_touch=0,cue_RT=0,sample_RT=0,**timing)
+            trialdata = dict(
+                trial=trial,trial_start_time=trial_start_time,
+                condition=condition,cue_touch=0,sample_touch=0,
+                cue_RT=0,sample_RT=0,tapped='none',**timing
+            )
 
             self.TTLout['sync'].pulse(.1)
             self.camera.start_recording((self.data_dir/f'{trial}.h264').as_posix())
@@ -144,7 +154,8 @@ class Memory(Experiment):
                         'cue_touch': cue_result.get('touch',0),
                         'cue_RT': cue_result.get('RT',0),
                         'sample_touch': sample_result.get('touch',0),
-                        'sample_RT': sample_result.get('RT',0)
+                        'sample_RT': sample_result.get('RT',0),
+                        'tapped': sample_result.get('tapped','none')
                     })
             outcome = trialdata['sample_touch']
 
