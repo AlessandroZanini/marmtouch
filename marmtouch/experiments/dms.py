@@ -46,12 +46,12 @@ class DMS(Experiment):
                     info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
         return info
 
-    def _show_test(self,stimuli,timing,distractor=True,sample=False):
+    def _show_test(self,stimuli,timing,show_distractor=True,show_sample=False):
         sample, target, distractor = stimuli['sample'], stimuli['target'], stimuli['distractor']
         self.screen.fill(self.background)
         self.draw_stimulus(**target)
-        if distractor: self.draw_stimulus(**distractor)
-        if sample: self.draw_stimulus(**sample)
+        if show_distractor: self.draw_stimulus(**distractor)
+        if show_sample: self.draw_stimulus(**sample)
         self.flip()
 
         start_time = current_time = time.time()
@@ -165,18 +165,16 @@ class DMS(Experiment):
             if sample_result['touch'] >= 0: #no matter what
                 if timing['delay_duration'] < 0: #if delay duration is negative, skip delay and keep the sample on during test phase
                     delay_result = dict(touch=0,RT=0)
-                    sample = True
                 else:
                     delay_result = self._run_delay(timing['delay_duration'])
-                    sample = False
                 if delay_result is None:
                     break
                 if delay_result.get('touch',0) >= 0: #no matter what
                     test_result = self._show_test(
                         stimuli, 
                         timing,
-                        distractor = stimuli['distractor'] is not None, 
-                        sample = sample
+                        show_distractor = stimuli['distractor'] is not None, 
+                        show_sample = timing['delay_duration'] < 0
                     )
                     if test_result is None:
                         break
