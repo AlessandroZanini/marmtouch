@@ -68,6 +68,7 @@ class Experiment:
         self.background = params['background']
         self.items = params['items']
         self.reward = params.get('reward', self.default_reward_params)
+        self.options = params.get('options', {})
         self.images = {}
 
         blocks = params.get('blocks')

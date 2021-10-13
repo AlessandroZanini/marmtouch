@@ -34,7 +34,8 @@ class Basic(Experiment):
                 continue
             else:
                 if self.was_tapped(stimuli['target']['loc'], tap, stimuli['target']['window']):
-                    info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
+                    if info['touch']==0:
+                        info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
                     if timing['correct_duration']:
                         self.screen.fill(self.background)
                         self.draw_stimulus(**stimuli['correct'])
@@ -51,6 +52,7 @@ class Basic(Experiment):
                     break
                 else:
                     info = {'touch':2, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
+                    if self.options.get('ignore_incorrect', False): continue
                     if timing['incorrect_duration']:
                         self.screen.fill(self.background)
                         self.draw_stimulus(**stimuli['incorrect'])
