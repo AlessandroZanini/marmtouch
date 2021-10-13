@@ -1,7 +1,7 @@
 from marmtouch._version import version
 import logging
-
-def getLogger(fileName='', fileMode='a', fileLevel='DEBUG', printLevel='WARN', capture_warnings=True):
+import sys
+def getLogger(fileName='', fileMode='a', fileLevel='DEBUG', printLevel='WARN', capture_warnings=True, capture_errors=True):
     """Utility that returns a logger object
 
     Parameters
@@ -18,6 +18,8 @@ def getLogger(fileName='', fileMode='a', fileLevel='DEBUG', printLevel='WARN', c
         Log level for StreamHandler
     capture_warnings: bool, optional, default: True
         Captures warnings to be processed by logger
+    capture_errors: bool, optional, default: True
+        Captures errors to be processed by logger
 
     Returns
     -------
@@ -33,7 +35,7 @@ def getLogger(fileName='', fileMode='a', fileLevel='DEBUG', printLevel='WARN', c
         logger.handlers[:] = []
 
     logger.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(module)s/%(funcName)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
     if fileName:
         if not fileLevel in logger_levels:
@@ -49,4 +51,35 @@ def getLogger(fileName='', fileMode='a', fileLevel='DEBUG', printLevel='WARN', c
     streamHandler.setLevel(printLevel)
     logger.addHandler(streamHandler)
 
+    if capture_errors:
+        sys.stderr = LoggerWriter(logger.error)
+        logger.info(f'stderr redirected to: {logger}')
     return logger
+
+class LoggerWriter:
+    """A mock file-like stream for redirecting to logger
+
+    Parameters
+    ----------
+    writer: callable
+        stream is processed and passed to this callable
+
+    References
+    ----------
+    [1] https://stackoverflow.com/questions/19425736/how-to-redirect-stdout-and-stderr-to-logger-in-python
+    """
+    def __init__(self, writer):
+        self._writer = writer
+        self._msg = ''
+
+    def write(self, message):
+        self._msg = self._msg + message
+        while '\n' in self._msg:
+            pos = self._msg.find('\n')
+            self._writer(self._msg[:pos])
+            self._msg = self._msg[pos+1:]
+
+    def flush(self):
+        if self._msg != '':
+            self._writer(self._msg)
+            self._msg = ''
