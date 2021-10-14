@@ -93,6 +93,9 @@ class Basic(Experiment):
             trial_start_time = time.time() - self.start_time
             trialdata = dict(trial=trial,trial_start_time=trial_start_time,condition=condition,target_touch=0,target_RT=0,**timing)
 
+            if self.options.get('push_to_start',False):
+                start_result = self._start_trial()
+                if start_result is None: continue
             self.TTLout['sync'].pulse(.1)
             if self.camera is not None:
                 self.camera.start_recording((self.data_dir/f'{trial}.h264').as_posix())
