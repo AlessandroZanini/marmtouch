@@ -27,7 +27,7 @@ def _transfer_files(videos_directory, server_path, verbose=True):
     except:
         print(f"Failed to create directory {server_session_path}.")
         return
-    logger = util.getLogger(logger_path.as_posix())
+    logger = util.getLogger(logger_path.as_posix(), capture_errors=False)
     videos = set(video for video in videos_directory.iterdir() if video.is_file())
 
     if not videos:
