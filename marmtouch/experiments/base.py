@@ -101,28 +101,33 @@ class Experiment:
             self.camera.stop_preview()
         if self.data_dir is not None:
             self.dump_trialdata()
+            self.logger.info('Behavioural data dumped.')
             with open(self.events_path.as_posix(), 'w') as f:
                 yaml.dump(self.events, f)
+            self.logger.info(f'Event data dumped. {len(self.events)} total records.')
         self.running = False
         pygame.quit()
 
     def parse_events(self):
         event_time = time.time() - self.start_time
         event_stack = []
+        exit_ = False
         for event in pygame.event.get():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mouseX, mouseY = pygame.mouse.get_pos()
                 event_stack.append({'type':'mouse_down','time':event_time,'mouseX':mouseX,'mouseY':mouseY})
                 if mouseX<300:
-                    self.graceful_exit()
+                    exit_ = True
             if event.type == pygame.QUIT:
                 event_stack.append({'type':'QUIT','time':event_time})
-                self.graceful_exit()
+                exit_ = True
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     event_stack.append({'type':'key_down','time':event_time,'key':'escape'})
-                    self.graceful_exit()
+                    exit_ = True
         self.events.extend(event_stack)
+        if exit_:
+            self.graceful_exit()
         return event_stack
 
     @staticmethod
