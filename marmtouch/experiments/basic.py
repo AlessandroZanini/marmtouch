@@ -40,20 +40,22 @@ class Basic(Experiment):
                         self.screen.fill(self.background)
                         self.draw_stimulus(**stimuli['correct'])
                         self.flip()
-                        self.TTLout['reward'].pulse(.2,n_pulses=1,interpulse_interval=1)
+                        self.good_monkey()
                         start_time = time.time()
                         while (time.time()-start_time) < timing['correct_duration']: 
                             self.parse_events()
                     else:
                         self.good_monkey()
-                    
                     self.screen.fill(self.background)
                     self.flip()
                     break
                 else:
                     info = {'touch':2, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
-                    if self.options.get('ignore_incorrect', False): continue
-                    if timing['incorrect_duration']:
+                    if self.options.get('ignore_incorrect', False): 
+                        continue
+                    elif self.options.get('reward_incorrect', False): 
+                        self.good_monkey()
+                    elif timing['incorrect_duration']:
                         self.screen.fill(self.background)
                         self.draw_stimulus(**stimuli['incorrect'])
                         self.flip()
@@ -66,12 +68,16 @@ class Basic(Experiment):
         return info
 
     def run(self):
+        if self.options.get('reward_incorrect',False) \
+            and self.options.get('ignore_incorrect',False):
+            raise ValueError('ignore_incorrect and reward_incorrect cannot both be true')
         self.initialize()
         self.info = {condition: Counter() for condition in self.conditions.keys()}
 
         trial = 0
         self.running = True
         self.start_time = time.time()
+
         while self.running:
             self.update_info(trial)
             
