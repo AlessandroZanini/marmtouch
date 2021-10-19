@@ -34,8 +34,7 @@ class Basic(Experiment):
                 continue
             else:
                 if self.was_tapped(stimuli['target']['loc'], tap, stimuli['target']['window']):
-                    if info['touch']==0:
-                        info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
+                    info = {'touch':1 if info['touch']==0 else 3, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
                     if timing['correct_duration']:
                         self.screen.fill(self.background)
                         self.draw_stimulus(**stimuli['correct'])
@@ -88,7 +87,10 @@ class Basic(Experiment):
                 if not self.running: return
             
             #initialize trial parameters
-            condition = random.choice(list(self.conditions.keys()))
+            if self.blocks is None:
+                condition = random.choice(list(self.conditions.keys()))
+            else:
+                condition = self.get_condition()
             stimuli = {stimulus: self.get_item(self.conditions[condition][stimulus]) for stimulus in ['target','correct','incorrect']}
 
             distractors = self.conditions[condition].get('distractors')
@@ -124,3 +126,5 @@ class Basic(Experiment):
             self.dump_trialdata(trialdata)
             trial += 1
             self.info[condition][trialdata['target_touch']] += 1
+            if self.blocks is not None:
+                self.update_condition_list(correct=(trialdata['target_touch']==1))
