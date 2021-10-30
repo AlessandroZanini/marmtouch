@@ -117,7 +117,7 @@ class DMS(Experiment):
         combinations = product(delay_times, self.conditions.keys())
         self.info = {(condition, delay): Counter() for (delay, condition) in combinations}
 
-        trial = 0
+        self.itemid = trial = 0
         self.running = True
         self.start_time = time.time()
         while self.running:
@@ -138,7 +138,7 @@ class DMS(Experiment):
             else:
                 condition = self.get_condition()
 
-            stimuli, match_img, nonmatch_img = self.get_stimuli(trial, condition)
+            stimuli, match_img, nonmatch_img = self.get_stimuli(self.itemid, condition)
 
             ## GET TIMING INFO
             timing = {
@@ -193,9 +193,10 @@ class DMS(Experiment):
             self.camera.stop_recording()
             self.dump_trialdata(trialdata)
             trial += 1
+            self.itemid += 1
             self.info[condition, timing['delay_duration']][outcome] += 1
             if self.blocks is not None:
-                self.update_condition_list(correct=(outcome==1))
+                self.update_condition_list(correct=(outcome==1), trialunique=self.active_block.get('repeat_items', True))
 
     def update_info(self,trial):
         info = f"{self.params['monkey']} {self.params['task']} Trial#{trial}\n"

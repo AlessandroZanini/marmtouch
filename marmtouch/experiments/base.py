@@ -5,6 +5,7 @@ import time
 import random
 from itertools import cycle
 from collections import Counter
+import warnings
 
 import RPi.GPIO as GPIO
 import pygame
@@ -169,7 +170,7 @@ class Experiment:
         self.condition = self.condition_list.pop(0)
         return self.condition
 
-    def update_condition_list(self, correct=True):
+    def update_condition_list(self, correct=True, trialunique=False):
         if correct:
             return
 
@@ -185,8 +186,12 @@ class Experiment:
         elif retry_method == 'delayed':
             idx = random.randint(0, len(self.condition_list))
             self.condition_list.insert(idx, self.condition)
+            if trialunique:
+                warnings.warn('Delayed retry does not repeat items in trial unique experiments')
         elif retry_method == 'immediate':
             self.condition_list.insert(0, self.condition)
+            if trialunique:
+                self.itemid -= 1
         else:
             raise ValueError("'retry_method' must be one of [None,'delayed','immediate']")
 
