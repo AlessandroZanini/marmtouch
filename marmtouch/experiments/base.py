@@ -254,8 +254,8 @@ class Experiment:
 
     def draw_cross(self, radius, color, loc, width=1):
         x, y = loc
-        pygame.draw.line(self.screen, color, (x-radius,y), (x+radius,y), width=width)
-        pygame.draw.line(self.screen, color, (x,y-radius), (x,y+radius), width=width)
+        pygame.draw.line(self.screen, color, (x-radius,y), (x+radius,y), width)
+        pygame.draw.line(self.screen, color, (x,y-radius), (x,y+radius), width)
 
     def draw_stimulus(self,**params):
         """ Draws stimuli on screen
