@@ -4,35 +4,26 @@ from pathlib import Path
 import click
 import yaml
 
-@click.group()
-def run():
-    pass
-
 @click.command()
+@click.argument('task', required=True)
 @click.argument('params_path', required=True)
 @click.option('--preview/--no-preview',default=False,help='Enables camera preview in info screen')
-def memory(params_path,preview):
-    """ Run memory paradigm using parameters specified at PARAMS_PATH """
-    from marmtouch.experiments.memory import Memory #import here so that script utility isn't slowed down
-
-    params = yaml.safe_load(open(params_path))
-    session = time.strftime("%Y-%m-%d_%H-%M-%S")
-    data_dir = Path('/home/pi/Touchscreen', session)
-    memory = Memory(data_dir, params,camera_preview=preview)
-    #TODO: implement lock to prevent double running?
-    memory.run()
-
-@click.command()
-@click.argument('params_path',required=True)
 @click.option('--camera/--no-camera',default=True,help='Enables recording with camera')
-def basic(params_path,camera):
-    """ Run basic paradigm using parameters specified at PARAMS_PATH """
-    from marmtouch.experiments.basic import Basic
+@click.option('--debug/--no-debug',default=False,help='Enables debug mode')
+@click.option('--directory', default=None, help='Directory to save files')
+def run(task,params_path,preview,camera,debug,directory):
+    if task=='basic':
+        from marmtouch.experiments.basic import Basic as Task
+    elif task=='memory':
+        from marmtouch.experiments.memory import Memory as Task
+    elif task=='dms':
+        from marmtouch.experiments.dms import DMS as Task
+    else:
+        raise ValueError('Unknown task: {}'.format(task))
     params = yaml.safe_load(open(params_path))
     session = time.strftime("%Y-%m-%d_%H-%M-%S")
-    data_dir = Path('/home/pi/Touchscreen', session)
-    basic = Basic(data_dir, params, camera=camera)
-    basic.run()
-
-run.add_command(memory)
-run.add_command(basic)
+    if directory is None:
+        data_dir = Path('/home/pi/Touchscreen', session)
+    else:
+        data_dir = Path(directory, session)
+    Task(data_dir, params, camera_preview=preview, camera=camera, debug_mode=debug).run()

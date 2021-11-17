@@ -1,7 +1,7 @@
-from .make_shortcut import make_shortcut
-from .run import run
-from .transfer_files import transfer_files
-from .launcher import launch
+from marmtouch.scripts.make_shortcut import make_shortcut
+from marmtouch.scripts.run import run
+from marmtouch.scripts.transfer_files import transfer_files
+from marmtouch.scripts.launcher import launch
 
 import click
 
@@ -13,3 +13,6 @@ marmtouch.add_command(run)
 marmtouch.add_command(make_shortcut)
 marmtouch.add_command(transfer_files)
 marmtouch.add_command(launch)
+
+if __name__ == '__main__':
+    marmtouch()
