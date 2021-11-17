@@ -1,7 +1,7 @@
 from marmtouch.experiments.base import Experiment
 
 from collections import Counter
-from itertools import product
+from itertools import product, combinations
 import random
 import time
 
@@ -97,21 +97,30 @@ class DMS(Experiment):
 
     def get_stimuli(self, trial, condition):
         ## GET STIMULI
-        idx = trial%len(self.stimuli)
-        match_img, nonmatch_img = self.stimuli[idx]['A'], self.stimuli[idx]['B']
-        sample = self.get_image_stimulus(match_img,**self.conditions[condition]['sample'])
+        if self.options.get('method','itemfile')=='itemfile':
+            idx = trial%len(self.stimuli)
+            match_name, nonmatch_name = self.items[idx]['A'], self.items[idx]['B']
+            match_stim, nonmatch_stim = dict(path=match_name), dict(path=nonmatch_name)
+        else:
+            match_name, nonmatch_name = random.choice(list(combinations(self.items.keys(), 2)))
+            match_stim, nonmatch_stim = self.items[match_name], self.items[nonmatch_name]
+        sample = self.get_item(**match_stim,**self.conditions[condition]['sample'])
         match = self.conditions[condition]['match']
         if match is not None:
-            match = self.get_image_stimulus(match_img,**match)
+            match = self.get_item(**match_stim,**match)
         nonmatch = self.conditions[condition]['nonmatch']
         if nonmatch is not None:
-            nonmatch = self.get_image_stimulus(nonmatch_img,**nonmatch)
-        stimuli = {'sample': sample, 'target': match, 'distractor': nonmatch}
-        return stimuli, match_img, nonmatch_img
+            nonmatch = self.get_item(**nonmatch_stim,**nonmatch)
+        if self.options.get('match', True):
+            stimuli = {'sample': sample, 'target': match, 'distractor': nonmatch}
+        else:
+            stimuli = {'sample': sample, 'target': nonmatch, 'distractor': match}
+        return stimuli, match_name, nonmatch_name
 
     def run(self):
         self.initialize()
-        self.stimuli = self.parse_csv(self.items)
+        if self.options.get('method','itemfile')=='itemfile':
+            self.items = self.parse_csv(self.items)
 
         delay_times = [self.timing['delay']] if isinstance(self.timing['delay'], (int, float)) else self.timing['delay']
         combinations = product(delay_times, self.conditions.keys())
@@ -153,8 +162,9 @@ class DMS(Experiment):
                 **timing
             )
 
-            start_result = self._start_trial()
-            if start_result is None: continue
+            if self.options.get('push_to_start',True):
+                start_result = self._start_trial()
+                if start_result is None: continue
             self.TTLout['sync'].pulse(.1)
             self.camera.start_recording((self.data_dir/f'{trial}.h264').as_posix())
 
