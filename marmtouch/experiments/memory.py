@@ -135,6 +135,9 @@ class Memory(Experiment):
                 cue_RT=0,sample_RT=0,tapped='none',**timing
             )
 
+            if self.options.get('push_to_start',False):
+                start_result = self._start_trial()
+                if start_result is None: continue
             self.TTLout['sync'].pulse(.1)
             self.camera.start_recording((self.data_dir/f'{trial}.h264').as_posix())
 

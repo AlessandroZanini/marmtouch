@@ -33,6 +33,14 @@ class Experiment:
     info_background = (0,0,0)
     _image_cache_max_len = 20
     system_config_path = '/home/pi/marmtouch_system_config.yaml'
+    start_duration = 1e4
+    start_stimulus = dict(
+        type='circle', 
+        color=(100,100,255), 
+        loc=(900,400),
+        radius=100,
+        window=(300,300)
+    )
     def __init__(self,data_dir,params,TTLout={'reward':11,'sync':16},camera=True,camera_preview=False,camera_preview_window=(0,600,320,200),fullscreen=True,debug_mode=False):
         system_params = yaml.safe_load(open(Path(self.system_config_path)))
         params.update(system_params)
@@ -71,6 +79,8 @@ class Experiment:
         self.items = params['items']
         self.reward = params.get('reward', self.default_reward_params)
         self.options = params.get('options', {})
+        self.start_stimulus = self.options.get('start_stimulus', self.start_stimulus)
+        self.start_duration = self.options.get('start_duration', self.start_duration)
         self.images = {}
 
         blocks = params.get('blocks')
@@ -308,29 +318,20 @@ class Experiment:
         self.screen.blit(self.info_screen,(0,0))
         pygame.display.update()
 
-    def _start_trial(self, start_stimulus=None,duration=1e4):
-        if start_stimulus is None:
-            start_stimulus = dict(
-                type='circle', 
-                color=(100,100,255), 
-                loc=(900,400),
-                radius=100,
-                window=(300,300)
-            )
-
+    def _start_trial(self):
         self.screen.fill(self.background)
-        self.draw_stimulus(**start_stimulus)
+        self.draw_stimulus(**self.start_stimulus)
         self.flip()
 
         start_time = current_time = time.time()
         info = {'touch':0,'RT':0}
-        while (current_time-start_time) < duration:
+        while (current_time-start_time) < self.start_duration:
             current_time = time.time()
             tap = self.get_first_tap(self.parse_events())
             if not self.running:
                 return
             if tap is not None:
-                if self.was_tapped(start_stimulus['loc'], tap, start_stimulus['window']):
+                if self.was_tapped(self.start_stimulus['loc'], tap, self.start_stimulus['window']):
                     info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
                     return info
 
