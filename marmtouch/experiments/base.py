@@ -338,9 +338,9 @@ class Experiment:
     def update_info(self, trial):
         info = f"{self.params['monkey']} {self.params['task']} Trial#{trial}\n"
         for condition, condition_info in self.info.items():
-            info += f"Condition {condition}: {condition_info[1]: 3d} correct, {condition_info[2]: 3d} incorrect\n"
+            info += f"Condition {condition}: {condition_info[1]: 3d} correct, {condition_info[2]+condition_info.get(3,0): 3d} incorrect\n"
         overall = sum(self.info.values(),Counter())
-        info += f"Overall: {overall[1]: 3d} correct, {overall[2]: 3d} incorrect, {overall[0]: 3d} no response\n"
+        info += f"Overall: {overall[1]: 3d} correct, {overall[2]+overall.get(3,0): 3d} incorrect, {overall[0]: 3d} no response"
 
         self.info_screen.fill(self.info_background)
         for idx, line in enumerate(info.splitlines()):
