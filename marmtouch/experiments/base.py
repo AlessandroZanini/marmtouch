@@ -300,7 +300,7 @@ class Experiment:
         params['type'] = 'image'
         image = self.images.get(path)
         if image is None:
-            self.images[path] = params['image'] = pygame.image.load(path).convert()
+            self.images[path] = params['image'] = pygame.image.load(path).convert_alpha()
             if len(self.images) > self._image_cache_max_len:
                 self.images.pop(list(self.images.keys())[0])
         else:
