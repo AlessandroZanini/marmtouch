@@ -98,9 +98,9 @@ class DMS(Experiment):
     def get_stimuli(self, trial, condition):
         ## GET STIMULI
         if self.options.get('method','itemfile')=='itemfile':
-            idx = trial%len(self.stimuli)
+            idx = trial%len(self.items)
             match_name, nonmatch_name = self.items[idx]['A'], self.items[idx]['B']
-            match_stim, nonmatch_stim = dict(path=match_name), dict(path=nonmatch_name)
+            match_stim, nonmatch_stim = dict(type='image',path=match_name), dict(type='image',path=nonmatch_name)
         else:
             match_name, nonmatch_name = random.choice(list(combinations(self.items.keys(), 2)))
             match_stim, nonmatch_stim = self.items[match_name], self.items[nonmatch_name]
