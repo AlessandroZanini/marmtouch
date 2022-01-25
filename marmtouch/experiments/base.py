@@ -42,7 +42,7 @@ class Experiment:
         window=(300,300)
     )
     def __init__(self,data_dir,params,TTLout={'reward':11,'sync':16},camera=True,camera_preview=False,camera_preview_window=(0,600,320,200),fullscreen=True,debug_mode=False):
-        system_params = yaml.safe_load(open(Path(self.system_config_path)))
+        system_params = util.read_yaml(Path(self.system_config_path))
         params.update(system_params)
         self.debug_mode = debug_mode
         if data_dir is None:

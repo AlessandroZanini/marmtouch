@@ -1,4 +1,5 @@
 from marmtouch.scripts.transfer_files import bulk_transfer_files
+import marmtouch.util as util
 
 import tkinter as tk
 from pathlib import Path
@@ -6,7 +7,6 @@ from functools import partial
 import time
 
 import click
-import yaml
 
 
 button_params = dict(height=3, width=20, relief=tk.FLAT, bg="gray99", fg="purple3", font="Dosis")
@@ -117,7 +117,7 @@ class Launcher:
 
     def task_selector(self):
         self._recycle_buttons()
-        task_list = [f for f in self.config_directory.iterdir() if f.is_dir()]
+        task_list = [f for f in self.config_directory.iterdir() if f.is_dir() and not f.name.startswith('.')]
         for task in task_list:
             self._add_button(text=task.name, command=partial(self.config_selector, task))
         self._add_button(text='<<', command=self.job_selector)
@@ -130,20 +130,26 @@ class Launcher:
         self._add_button(text='<<', command=self.task_selector)
 
     def run(self, task, config):
-        params = yaml.safe_load(open(config))
+        params = util.read_yaml(config)
         session = time.strftime("%Y-%m-%d_%H-%M-%S")
         data_dir = Path('/home/pi/Touchscreen', session)
         if task.name in ['basic','random','reversal']:
             from marmtouch.experiments.basic import Basic
-            Basic(data_dir, params).run()
+            experiment = Basic(data_dir, params)
         elif task.name in ['memory','cued']:
             from marmtouch.experiments.memory import Memory
-            Memory(data_dir, params).run()
+            experiment = Memory(data_dir, params)
         elif task.name in ['match', 'nonmatch']:
             from marmtouch.experiments.dms import DMS
-            DMS(data_dir, params).run()
+            experiment = DMS(data_dir, params)
         else:
             raise ValueError(f'Task {task.name} not supported!')
+        try:
+            experiment.run()
+        except Exception as err:
+            experiment.logger.error(err)
+            experiment.graceful_exit()
+            raise err
         self.exit()
 
     def exit(self):

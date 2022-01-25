@@ -1,8 +1,9 @@
+import marmtouch.util as util
+
 import time
 from pathlib import Path
 
 import click
-import yaml
 
 @click.command()
 @click.argument('task', required=True)
@@ -20,10 +21,16 @@ def run(task,params_path,preview,camera,debug,directory):
         from marmtouch.experiments.dms import DMS as Task
     else:
         raise ValueError('Unknown task: {}'.format(task))
-    params = yaml.safe_load(open(params_path))
+    params = util.read_yaml(params_path)
     session = time.strftime("%Y-%m-%d_%H-%M-%S")
     if directory is None:
         data_dir = Path('/home/pi/Touchscreen', session)
     else:
         data_dir = Path(directory, session)
-    Task(data_dir, params, camera_preview=preview, camera=camera, debug_mode=debug).run()
+    experiment = Task(data_dir, params, camera_preview=preview, camera=camera, debug_mode=debug)
+    try:
+        experiment.run()
+    except Exception as err:
+        experiment.logger.error(err)
+        experiment.graceful_exit()
+        raise err
