@@ -4,7 +4,6 @@ from collections import Counter
 from itertools import product
 import random
 import time
-from pathlib import Path
 
 import pygame
 
@@ -186,7 +185,6 @@ class Memory(Experiment):
             txt = pygame.transform.rotate(txt,90)
             self.info_screen.blit(txt, (idx*30,30))
 
-        if self.data_dir is not None:
-            self.info_screen.blit(self.session_txt, self.session_txt_rect)
+        self.info_screen.blit(self.session_txt, self.session_txt_rect)
 
         self.flip()

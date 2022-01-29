@@ -3,10 +3,6 @@ from marmtouch.experiments.base import Experiment
 from collections import Counter
 import random
 import time
-from pathlib import Path
-
-import pygame
-
 
 class Basic(Experiment):
     keys = 'trial','trial_start_time','condition','target_touch','target_RT','target_duration','correct_duration','incorrect_duration'

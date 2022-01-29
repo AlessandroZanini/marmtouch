@@ -1,4 +1,5 @@
 from marmtouch.experiments.base import Experiment
+from marmtouch.util.parse_csv import parse_csv
 
 from collections import Counter
 from itertools import product, combinations
@@ -120,7 +121,7 @@ class DMS(Experiment):
     def run(self):
         self.initialize()
         if self.options.get('method','itemfile')=='itemfile':
-            self.items = self.parse_csv(self.items)
+            self.items = parse_csv(self.items)
 
         delay_times = [self.timing['delay']] if isinstance(self.timing['delay'], (int, float)) else self.timing['delay']
         combinations = product(delay_times, self.conditions.keys())
@@ -221,7 +222,6 @@ class DMS(Experiment):
             txt = pygame.transform.rotate(txt,90)
             self.info_screen.blit(txt, (idx*30,30))
 
-        if self.data_dir is not None:
-            self.info_screen.blit(self.session_txt, self.session_txt_rect)
+        self.info_screen.blit(self.session_txt, self.session_txt_rect)
 
         self.flip()

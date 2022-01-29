@@ -1,4 +1,6 @@
 import marmtouch.util as util
+from marmtouch.experiments.mixins.artist import ArtistMixin
+from marmtouch.experiments.mixins.events import EventsMixin
 
 from pathlib import Path 
 import time
@@ -6,26 +8,36 @@ import random
 from itertools import cycle
 from collections import Counter
 import warnings
-import math
 
 import RPi.GPIO as GPIO
 import pygame
 import yaml 
 
-class Experiment:
+class Experiment(ArtistMixin, EventsMixin):
     """ Base Class for designing experiments in marmtouch
 
     Parameters
     ----------
     data_dir: Path or path-like, required
-        if set to None, nothing will be saved.  This needs to be accounted for in self.run
+        Directory where all data is written to
+        Includes: behaviour.csv, events.yaml, marmtouch.log and videos if camera=True
     params: dict, required
-        All parameters for the experiment. Must contain 'timing', 'conditions' and 'background' fields (see below)
+        All parameters for the experiment. 
+        Must contain 'timing', 'items', 'conditions' and 'background' fields
+        Optionally may include 'options', 'reward' to overwrite default settings
+        May be further extended in subclasses
+    TTLout: dict, required
+    camera: bool, default=True
+    camera_preview: bool, default=True
+    camera_preview_window: tuple of int, default: (0,600,320,200)
+    fullscreen: bool, default=True
+    debug_mode: bool, default=False
+    touch_exit: bool, default=True
 
     Notes
     -----
-    [1] You must define self.screen and self.info_screen in self.run for self.flip to function
-    [2] draw_stimulus does not automatically flip the screen to prevent unnecessary updating when multiple items are drawn.  self.flip must be called when screen is to be updated.
+    [1] flip method must be called when screen is to be updated. 
+    Draw methods implemented in ArtistMixin do not do this automatically.
     """
     default_reward_params = dict(duration=.2,n_pulses=1,interpulse_interval=1)
     keys = ['trial','trial_start_time','condition']
@@ -41,28 +53,31 @@ class Experiment:
         radius=100,
         window=(300,300)
     )
-    def __init__(self,data_dir,params,TTLout={'reward':11,'sync':16},camera=True,camera_preview=False,camera_preview_window=(0,600,320,200),fullscreen=True,debug_mode=False):
+    #TODO: move TTLout to system_config?
+    #TODO: allow overwriting system_config_path from arg
+    def __init__(self, data_dir, params, TTLout={'reward':11,'sync':16},
+    camera=True, camera_preview=False, camera_preview_window=(0,600,320,200),
+    fullscreen=True, debug_mode=False, touch_exit=True):
         system_params = util.read_yaml(Path(self.system_config_path))
         params.update(system_params)
         self.debug_mode = debug_mode
-        if data_dir is None:
-            self.data_dir = None
-            self.logger = util.getLogger()
-        else:
-            data_dir = Path(data_dir)
-            if not data_dir.is_dir():
-                data_dir.mkdir()
-            self.data_dir = data_dir
-            self.behdata_path = self.data_dir/'behaviour.csv'
-            self.logger_path = self.data_dir/'marmtouch.log'
-            self.events_path = self.data_dir/'events.yaml'
-            self.params_path = self.data_dir/'params.yaml'
+        self.touch_exit = touch_exit
 
-            with open(self.params_path.as_posix(), 'w') as f:
-                yaml.dump(params, f)
-            with open(self.behdata_path.as_posix(), 'w') as f:
-                f.write(",".join(self.keys)+'\n')
-            self.logger = util.getLogger(self.logger_path.as_posix())
+        data_dir = Path(data_dir)
+        if not data_dir.is_dir():
+            data_dir.mkdir()
+        self.data_dir = data_dir
+        self.behdata_path = self.data_dir/'behaviour.csv'
+        self.logger_path = self.data_dir/'marmtouch.log'
+        self.events_path = self.data_dir/'events.yaml'
+        self.params_path = self.data_dir/'params.yaml'
+
+        with open(self.params_path.as_posix(), 'w') as f:
+            yaml.dump(params, f)
+        with open(self.behdata_path.as_posix(), 'w') as f:
+            f.write(",".join(self.keys)+'\n')
+
+        self.logger = util.getLogger(self.logger_path.as_posix())
         self.camera_preview = camera_preview
         self.camera_preview_window = camera_preview_window
         if camera:
@@ -85,7 +100,10 @@ class Experiment:
 
         blocks = params.get('blocks')
         if blocks is None:
-            blocks = [{'conditions': list(self.conditions.keys()), 'length': len(self.conditions)}]
+            blocks = [
+                {'conditions': list(self.conditions.keys()), 
+                'length': len(self.conditions)}
+            ]
         self.blocks = cycle(blocks)
         self.condition_list = []
 
@@ -111,51 +129,24 @@ class Experiment:
             self.camera.stop_recording()
         if self.camera is not None and self.camera_preview:
             self.camera.stop_preview()
-        if self.data_dir is not None:
-            self.dump_trialdata()
-            self.logger.info('Behavioural data dumped.')
-            with open(self.events_path.as_posix(), 'w') as f:
-                yaml.dump(self.events, f)
-            self.logger.info(f'Event data dumped. {len(self.events)} total records.')
+        self.dump_trialdata()
+        self.logger.info('Behavioural data dumped.')
+        with open(self.events_path.as_posix(), 'w') as f:
+            yaml.dump(self.events, f)
+        self.logger.info(
+            f'Event data dumped. {len(self.events)} total records.'
+        )
         self.running = False
         pygame.quit()
 
-    def parse_events(self):
-        event_time = time.time() - self.start_time
-        event_stack = []
-        exit_ = False
-        for event in pygame.event.get():
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                mouseX, mouseY = pygame.mouse.get_pos()
-                event_stack.append({'type':'mouse_down','time':event_time,'mouseX':mouseX,'mouseY':mouseY})
-                if mouseX<300:
-                    exit_ = True
-            if event.type == pygame.QUIT:
-                event_stack.append({'type':'QUIT','time':event_time})
-                exit_ = True
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    event_stack.append({'type':'key_down','time':event_time,'key':'escape'})
-                    exit_ = True
-        self.events.extend(event_stack)
-        if exit_:
-            self.graceful_exit()
-        return event_stack
-
-    @staticmethod
-    def get_first_tap(event_stack):
-        taps = []
-        for event in event_stack:
-            if event['type'] == 'mouse_down':
-                taps.append((event['mouseX'],event['mouseY']))
-        if taps:
-            return taps[0] #return the first tap in the queue - is this necessary?
-        else:
-            return None
-
     def dump_trialdata(self,trialdata={}):
+        #TODO: fix last trial off-by-one error with sync
         with open(self.behdata_path.as_posix(),'a') as f:
-            f.write(self.sep.join([str(trialdata.get(key, 'nan')) for key in self.keys])+'\n')
+            f.write(self.sep.join([
+                str(trialdata.get(key, 'nan')) 
+                for key in self.keys
+            ]))
+            f.write('\n')
         self.behdata.append(trialdata)
 
     def init_block(self, block_info):
@@ -224,77 +215,18 @@ class Experiment:
         self.flip()
 
         if self.camera_preview:
-            self.camera.start_preview(fullscreen=False,window=self.camera_preview_window)
-        
-        if self.data_dir is not None:
-            session_name = self.data_dir.name
-            if self.debug_mode:
-                session_name += ' DEBUG MODE'
-            text_colour = pygame.Color('RED') if self.debug_mode else pygame.Color('GREEN')
-            session_txt = self.session_font.render(session_name, True, text_colour)
-            self.session_txt = pygame.transform.rotate(session_txt,90)
-            self.session_txt_rect = self.session_txt.get_rect(bottomleft=(0,800-30))
+            self.camera.start_preview(
+                fullscreen=False,
+                window=self.camera_preview_window
+            )
 
-    @staticmethod
-    def parse_csv(path):
-        lines = open(path, 'r').read().splitlines()
-        headers = lines.pop(0).split(',')
-        data = [dict(zip(headers, line.split(','))) for line in lines]
-        return data
-
-    def draw_ngon(self, n, radius, color, loc, start_angle=0):
-        x, y = loc
-        start_angle = math.radians(start_angle)
-        angle_delta = 2*math.pi/n
-        angles = [start_angle+i*angle_delta for i in range(n)]
-        points = [(x+radius*math.cos(a),y+radius*math.sin(a)) for a in angles]
-        pygame.draw.polygon(self.screen, color, points)
-
-    def draw_star(self, n, radius, color, loc, start_angle=0, inner_outer_ratio=0.5):
-        x, y = loc
-        n *= 2
-        start_angle = math.radians(start_angle)
-        angle_delta = 2*math.pi/n
-        points = []
-        for i in range(n):
-            a = start_angle+i*angle_delta
-            radius_ = radius if i%2 else radius*inner_outer_ratio
-            points.append((x+radius_*math.cos(a),y+radius_*math.sin(a)))
-        pygame.draw.polygon(self.screen, color, points)
-
-    def draw_cross(self, radius, color, loc, width=1):
-        x, y = loc
-        pygame.draw.line(self.screen, color, (x-radius,y), (x+radius,y), width)
-        pygame.draw.line(self.screen, color, (x,y-radius), (x,y+radius), width)
-
-    def draw_stimulus(self,**params):
-        """ Draws stimuli on screen
-        
-        Draws stimuli on screen using pygame using parameters provided.
-        Must manually call pygame.display.update() after drawing all stimuli.
-        Use self.screen.fill(self.background) to clear the screen
-        """
-        if params['type'] == 'circle':
-            pygame.draw.circle(self.screen, params['color'], params['loc'], params['radius'])
-        elif params['type'] == 'triangle':
-            self.draw_ngon(3, params['radius'], params['color'], params['loc'], params.get('start_angle', 30))
-        elif params['type'] == 'square':
-            self.draw_ngon(4, params['radius'], params['color'], params['loc'], params.get('start_angle', 45))
-        elif params['type'] == 'hexagon':
-            self.draw_ngon(6, params['radius'], params['color'], params['loc'], params.get('start_angle', 0))
-        elif params['type'] == 'star':
-            self.draw_star(params['points'], params['radius'], params['color'], params['loc'], params.get('start_angle', 270), params.get('inner_outer_ratio', 0.5))
-        elif params['type'] == 'cross':
-            self.draw_cross(params['radius'], params['color'], params['loc'], params.get('width', 1))
-        elif params['type'] == 'image':
-            img = params['image']
-            img_rect = img.get_rect(center=params['loc'])
-            self.screen.blit(img, img_rect)
-        if self.debug_mode and 'window' in params:
-            w, h = params['window']
-            window = pygame.Rect(0, 0, w, h)
-            window.center = params['loc']
-            pygame.draw.rect(self.screen, pygame.Color('RED'), window, 4)
+        session_name = self.data_dir.name
+        if self.debug_mode:
+            session_name += ' DEBUG MODE'
+        text_colour = pygame.Color('RED') if self.debug_mode else pygame.Color('GREEN')
+        session_txt = self.session_font.render(session_name, True, text_colour)
+        self.session_txt = pygame.transform.rotate(session_txt,90)
+        self.session_txt_rect = self.session_txt.get_rect(bottomleft=(0,800-30))
 
     def get_image_stimulus(self,path,**params):
         params['type'] = 'image'
@@ -348,28 +280,6 @@ class Experiment:
             txt = pygame.transform.rotate(txt,90)
             self.info_screen.blit(txt, (idx*30,30))
 
-        if self.data_dir is not None:
-            self.info_screen.blit(self.session_txt, self.session_txt_rect)
+        self.info_screen.blit(self.session_txt, self.session_txt_rect)
 
         self.flip()
-
-    def was_tapped(self, target, tap, window):
-        """Check if tap was in a window around target location
-
-        Parameters
-        ----------
-        target : list-like (2,)
-            (x, y) coordinates for center of target location
-        tap : list-like (2,)
-            (x, y) coordinates of the tap
-        window : list-like (2,)
-            (width, height) of window centered at target
-
-        Returns
-        -------
-        bool
-            whether or not the tap was in the window
-        """
-        winx, winy = window
-        return abs(tap[0] - target[0]) < (winx/2) \
-            and abs(tap[1] - target[1]) < (winy/2)
