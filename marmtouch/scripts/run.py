@@ -12,7 +12,8 @@ import click
 @click.option('--camera/--no-camera',default=True,help='Enables recording with camera')
 @click.option('--debug/--no-debug',default=False,help='Enables debug mode')
 @click.option('--directory', default=None, help='Directory to save files')
-def run(task,params_path,preview,camera,debug,directory):
+@click.option('--touch-exit/--no-touch-exit', default=True,help="Enables touching info screen to exit")
+def run(task,params_path,preview,camera,debug,directory,touch_exit):
     if task=='basic':
         from marmtouch.experiments.basic import Basic as Task
     elif task=='memory':
@@ -27,10 +28,5 @@ def run(task,params_path,preview,camera,debug,directory):
         data_dir = Path('/home/pi/Touchscreen', session)
     else:
         data_dir = Path(directory, session)
-    experiment = Task(data_dir, params, camera_preview=preview, camera=camera, debug_mode=debug)
-    try:
-        experiment.run()
-    except Exception as err:
-        experiment.logger.error(err)
-        experiment.graceful_exit()
-        raise err
+    experiment = Task(data_dir, params, camera_preview=preview, camera=camera, debug_mode=debug, touch_exit=touch_exit)
+    experiment.run_safe()

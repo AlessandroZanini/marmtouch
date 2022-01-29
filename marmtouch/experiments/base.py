@@ -283,3 +283,20 @@ class Experiment(ArtistMixin, EventsMixin):
         self.info_screen.blit(self.session_txt, self.session_txt_rect)
 
         self.flip()
+
+    def run_safe(self):
+        """Runs experiment with graceful exit on errors
+
+        Raises
+        ------
+        Exception
+            Any unexpected error raised by Experiment.run is caught.
+            Error is logged and the graceful_exit method is called
+            Error is raised.
+        """
+        try:
+            self.run()
+        except Exception as err:
+            self.logger.error(err)
+            self.graceful_exit()
+            raise err

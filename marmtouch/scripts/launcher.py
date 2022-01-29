@@ -144,12 +144,7 @@ class Launcher:
             experiment = DMS(data_dir, params)
         else:
             raise ValueError(f'Task {task.name} not supported!')
-        try:
-            experiment.run()
-        except Exception as err:
-            experiment.logger.error(err)
-            experiment.graceful_exit()
-            raise err
+        experiment.run_safe()
         self.exit()
 
     def exit(self):
