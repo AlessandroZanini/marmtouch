@@ -100,6 +100,8 @@ class Experiment(ArtistMixin, EventsMixin):
 
         blocks = params.get('blocks')
         if blocks is None:
+            #TODO: child .run methods currently don't make use of this
+            # adding that will make code a lot more portable
             blocks = [
                 {'conditions': list(self.conditions.keys()), 
                 'length': len(self.conditions)}
@@ -242,6 +244,7 @@ class Experiment(ArtistMixin, EventsMixin):
     def get_item(self, item_key=None, **params):
         if item_key is not None:
             params.update(self.items[item_key])
+            params['name'] = item_key
         if params['type'] == 'image':
             params = self.get_image_stimulus(**params)
         return params

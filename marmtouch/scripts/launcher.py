@@ -136,7 +136,7 @@ class Launcher:
         if task.name in ['basic','random','reversal']:
             from marmtouch.experiments.basic import Basic
             experiment = Basic(data_dir, params)
-        elif task.name in ['memory','cued']:
+        elif task.name in ['memory','cued','vmcl']:
             from marmtouch.experiments.memory import Memory
             experiment = Memory(data_dir, params)
         elif task.name in ['match', 'nonmatch']:

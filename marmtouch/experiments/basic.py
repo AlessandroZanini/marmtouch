@@ -78,7 +78,7 @@ class Basic(Experiment):
             
             #iti
             start_time = time.time()
-            while time.time()-start_time<3:
+            while time.time()-start_time<self.options.get('iti',3):
                 self.parse_events()
                 if not self.running: return
             

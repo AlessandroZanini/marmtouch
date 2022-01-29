@@ -135,7 +135,7 @@ class DMS(Experiment):
             
             #iti
             start_time = time.time()
-            while time.time()-start_time<5:
+            while time.time()-start_time<self.options.get('iti',5):
                 self.parse_events()
                 if not self.running:
                     return
