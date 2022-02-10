@@ -1,4 +1,5 @@
 from marmtouch.experiments.base import Experiment
+from marmtouch.experiments.mixins.task_components.delay import DelayMixin
 from marmtouch.util.parse_csv import parse_csv
 
 from collections import Counter
@@ -8,25 +9,10 @@ import time
 
 import pygame
 
-class DMS(Experiment):
+class DMS(Experiment, DelayMixin):
     keys = 'trial','trial_start_time','condition','sample_touch','sample_RT','test_touch','test_RT','sample_duration','delay_duration','test_duration','match_img','nonmatch_img'
     name = 'DMS'
     info_background = (0,0,0)
-
-    def _run_delay(self,duration):
-        """ Run a delay based for provided duration. Returns last touch during delay period if there was one. """
-        self.screen.fill(self.background)
-        self.flip()
-        start_time = current_time = time.time()
-        info = {'touch':0,'RT':0}
-        while (current_time - start_time) < duration:
-            current_time = time.time()
-            tap = self.get_first_tap(self.parse_events())
-            if not self.running:
-                return
-            if tap is not None:
-                info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
-        return info
 
     def _show_sample(self,stimuli,timing):
         sample = stimuli['sample']
@@ -167,7 +153,8 @@ class DMS(Experiment):
                 start_result = self._start_trial()
                 if start_result is None: continue
             self.TTLout['sync'].pulse(.1)
-            self.camera.start_recording((self.data_dir/f'{trial}.h264').as_posix())
+            if self.camera is not None:
+                self.camera.start_recording((self.data_dir/f'{trial}.h264').as_posix())
 
             #run trial
             sample_result = self._show_sample(stimuli, timing)
@@ -177,7 +164,7 @@ class DMS(Experiment):
                 if timing['delay_duration'] < 0: #if delay duration is negative, skip delay and keep the sample on during test phase
                     delay_result = dict(touch=0,RT=0)
                 else:
-                    delay_result = self._run_delay(timing['delay_duration'])
+                    delay_result = self._run_delay(stimuli, timing)
                 if delay_result is None:
                     break
                 if delay_result.get('touch',0) >= 0: #no matter what
@@ -201,7 +188,8 @@ class DMS(Experiment):
             self.screen.fill(self.background)
             self.flip()
 
-            self.camera.stop_recording()
+            if self.camera is not None:
+                self.camera.stop_recording()
             self.dump_trialdata(trialdata)
             trial += 1
             self.itemid += 1

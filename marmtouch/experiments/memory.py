@@ -1,4 +1,5 @@
 from marmtouch.experiments.base import Experiment
+from marmtouch.experiments.mixins.task_components.delay import DelayMixin
 
 from collections import Counter
 from itertools import product
@@ -7,24 +8,13 @@ import time
 
 import pygame
 
-class Memory(Experiment):
-    keys = 'trial','trial_start_time','condition','cue_touch','cue_RT','sample_touch','sample_RT','cue_duration','delay_duration','sample_duration','correct_duration','incorrect_duration','tapped'
+class Memory(Experiment, DelayMixin):
+    keys = ('trial','trial_start_time','condition','cue_touch','cue_RT',
+    'sample_touch','sample_RT','cue_duration','delay_duration',
+    'sample_duration','correct_duration','incorrect_duration',
+    'delay_distractor_onset','delay_distractor_duration','tapped')
     name = 'Memory'
     info_background = (0,0,0)
-    def _run_delay(self,duration):
-        """ Run a delay based for provided duration. Returns last touch during delay period if there was one. """
-        self.screen.fill(self.background)
-        self.flip()
-        start_time = current_time = time.time()
-        info = {'touch':0,'RT':0}
-        while (current_time - start_time) < duration:
-            current_time = time.time()
-            tap = self.get_first_tap(self.parse_events())
-            if not self.running:
-                return
-            if tap is not None:
-                info = {'touch':1, 'RT': current_time-start_time, 'x':tap[0], 'y':tap[1]}
-        return info
 
     def _show_cue(self,stimuli,timing):
         self.screen.fill(self.background)
@@ -139,8 +129,13 @@ class Memory(Experiment):
 
             stimuli = {stimulus: self.get_item(self.conditions[condition][stimulus]) for stimulus in ['cue','target','correct','incorrect']}
             stimuli['distractors'] = [self.get_item(distractor) for distractor in self.conditions[condition]['distractors']]
+            if 'delay_distractor' in self.conditions[condition]:
+                stimuli['delay_distractor'] = self.get_item(self.conditions[condition]['delay_distractor'])
+            else:
+                stimuli['delay_distractor'] = None
 
             timing = {f"{event}_duration": self.get_duration(event) for event in ['cue','delay','sample','correct','incorrect']}
+            timing.update({event: self.get_duration(event) for event in ['delay_distractor_duration', 'delay_distractor_onset']})
             trial_start_time = time.time() - self.start_time
             trialdata = dict(
                 trial=trial,trial_start_time=trial_start_time,
@@ -169,7 +164,7 @@ class Memory(Experiment):
                 })
             else:
                 if timing['delay_duration'] > 0:
-                    delay_result = self._run_delay(timing['delay_duration'])
+                    delay_result = self._run_delay(stimuli, timing)
                 else:
                     delay_result = {'touch':0}
 
