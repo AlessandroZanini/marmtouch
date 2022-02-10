@@ -6,11 +6,19 @@ import subprocess
 
 from tqdm import tqdm
 import click
+import yaml
 
 def _transfer_files(videos_directory, server_path, verbose=True):
     session = videos_directory.name
     videos_directory = Path(videos_directory)
     server_path = Path(server_path)
+
+    if (videos_directory/'params.yaml').is_file():
+        params = yaml.safe_load(open(videos_directory/'params.yaml'))
+        transfer_path = params.get('transfer_path')
+        if transfer_path is not None:
+            server_path = server_path/transfer_path
+            server_path.mkdir(parents=True, exist_ok=True)
 
     failed = []
     success = []
