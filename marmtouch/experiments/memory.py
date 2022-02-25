@@ -129,13 +129,13 @@ class Memory(Experiment, DelayMixin):
 
             stimuli = {stimulus: self.get_item(self.conditions[condition][stimulus]) for stimulus in ['cue','target','correct','incorrect']}
             stimuli['distractors'] = [self.get_item(distractor) for distractor in self.conditions[condition]['distractors']]
+            timing = {f"{event}_duration": self.get_duration(event) for event in ['cue','delay','sample','correct','incorrect']}
             if 'delay_distractor' in self.conditions[condition]:
                 stimuli['delay_distractor'] = self.get_item(self.conditions[condition]['delay_distractor'])
+                timing.update({event: self.get_duration(event) for event in ['delay_distractor_duration', 'delay_distractor_onset']})
             else:
                 stimuli['delay_distractor'] = None
 
-            timing = {f"{event}_duration": self.get_duration(event) for event in ['cue','delay','sample','correct','incorrect']}
-            timing.update({event: self.get_duration(event) for event in ['delay_distractor_duration', 'delay_distractor_onset']})
             trial_start_time = time.time() - self.start_time
             trialdata = dict(
                 trial=trial,trial_start_time=trial_start_time,
