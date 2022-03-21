@@ -1,4 +1,5 @@
 from marmtouch.scripts.transfer_files import bulk_transfer_files
+from marmtouch.util.get_network_interfaces import get_network_interfaces
 import marmtouch.util as util
 
 import tkinter as tk
@@ -61,12 +62,16 @@ class Launcher:
         self._init()
         self.config_directory = Path(config_directory)
         self.buttons = []
+        self.labels = []
         self.job_selector()
         self.root.mainloop()
     
-    def _recycle_buttons(self):
+    def _reset_gui(self):
         for button in self.buttons:
             button.destroy()
+        for label in self.labels:
+            label.destroy()
+        self.labels = []
         self.buttons = []
     
     def _add_button(self, text, command):
@@ -83,7 +88,7 @@ class Launcher:
         self.scframe.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE)
     
     def job_selector(self):
-        self._recycle_buttons()
+        self._reset_gui()
         jobs = [
             dict(text='Transfer', command=bulk_transfer_files),
             dict(text='Camera preview', command=self.preview_camera),
@@ -94,12 +99,18 @@ class Launcher:
         for job in jobs:
             self._add_button(**job)
 
+        # display network interfaces and IP addresses on home display
+        addresses = get_network_interfaces()
+        addresses = "\n".join([f"{k}: {v}" for k, v in addresses.items()])
+        addresses_label = tk.Label(self.root, text = addresses)
+        self.labels.append(addresses_label)
+
     def test_GPIO(self, port):
         from marmtouch.util import TTL
         TTL(port).pulse()
 
     def test_GPIO_selector(self):
-        self._recycle_buttons()
+        self._reset_gui()
         jobs = [
             dict(text='reward', command=partial(self.test_GPIO, port=11)),
             dict(text='sync',command=partial(self.test_GPIO, port=16)),
@@ -116,14 +127,14 @@ class Launcher:
         camera.stop_preview()
 
     def task_selector(self):
-        self._recycle_buttons()
+        self._reset_gui()
         task_list = [f for f in self.config_directory.iterdir() if f.is_dir() and not f.name.startswith('.')]
         for task in task_list:
             self._add_button(text=task.name, command=partial(self.config_selector, task))
         self._add_button(text='<<', command=self.job_selector)
 
     def config_selector(self, task):
-        self._recycle_buttons()
+        self._reset_gui()
         config_list = list(task.glob('*.yaml'))
         for config in config_list:
             self._add_button(text=config.stem, command=partial(self.run, task=task, config=config))
