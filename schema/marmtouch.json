@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/schema",
+  "title": "Params",
+  "description": "Scheme for params.yaml for marmtouch",
+  "type": "object",
+  "properties": {
+    "options": {
+      "title": "Options",
+      "type": "object",
+      "properties": {
+        "iti": {
+          "title": "Inter-trial Interval",
+          "description": "Inter-trial interval in seconds",
+          "type": "number"
+        },
+        "ignore_incorrect": {
+          "type": "boolean",
+          "title": "Ignore Incorrect",
+          "description": "Incorrect responses will not end the trial"
+        },
+        "reward_incorrect": {
+          "type": "boolean",
+          "title": "Reward Incorrect",
+          "description": "Incorrect responses will also be rewarded"
+        },
+        "cue_touch_enabled": {
+          "type": "boolean",
+          "title": "Cue Touch",
+          "description": "If the cue is touched, the cue phase ends and delay/sample phase will begin.  Otherwise, trial ends."
+        },
+        "match": {
+          "title": "Match",
+          "description": "Used for Experiment Class DMS.  Default True. If true, runs match to sample. If false, runs nonmatch to sample",
+          "type": "boolean"
+        },
+        "push_to_start": {
+          "title": "Push to Start",
+          "description": "If true, before trial begins, start_stimulus is drawn and must be clicked to proceed.",
+          "type": "boolean"
+        }
+      }
+    },
+    "monkey": {
+      "type": "string", 
+      "title": "Monkey",
+      "description": "Subject name(s)"
+    },
+    "background": {
+      "$ref": "./color.json",
+      "description": "Background colour for marmtouch subject screen",
+      "default": [100,100,100]
+    },
+    "reward": {
+      "type": "object",
+      "description": "Reward parameters",
+      "properties": {
+        "duration": {
+          "type": "number",
+          "description": "Duration of reward pulse in seconds",
+          "default": 0.2
+        },
+        "n_pulses": {
+          "type": "integer",
+          "description": "Number of reward pulses",
+          "default": 1
+        },
+        "interpulse_interval": {
+          "type": "number",
+          "description": "Interval between pulses in seconds",
+          "default": 1
+        }
+      }
+    },
+    "blocks": {
+      "type": "array",
+      "title": "Blocks",
+      "description": "Array of blocks",
+      "items": {
+        "$ref": "./block.json"
+      }
+    },
+    "items": {
+      "title": "Items",
+      "description": "Items to be used in the experiment",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "./item.json", 
+            "required": ["loc"]
+          }
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "conditions": {
+      "type": "object",
+      "title": "Conditions",
+      "description": "Conditions to be used in the experiment"
+    }
+  }
+}

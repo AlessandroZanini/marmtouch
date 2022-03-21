@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/schema",
+  "title": "Block",
+  "description": "Schema for Task Block",
+  "properties": {
+    "conditions": {
+      "title": "Conditions",
+      "description": "Conditions included in this block",
+      "type": "array"
+    },
+    "weights": {
+      "type": "array",
+      "title": "Weights",
+      "description": "Weights for each condition. Length must match conditions array",
+      "items": {
+        "type": "integer"
+      }
+    },
+    "method": {
+      "type": "string",
+      "title": "Method",
+      "enum": [
+        "incremental",
+        "random"
+      ],
+      "description": "Method by which to order trials"
+    },
+    "retry_method": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "immediate",
+        "delayed",
+        null
+      ],
+      "title": "Retry Method",
+      "description": "If not null, use this method to retry trials that were not completed correctly"
+    },
+    "length": {
+      "type": "integer",
+      "title": "Block Length",
+      "description": "Number of trials in the block (not including retried trials)"
+    },
+    "max_retries": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "title": "Max Retries",
+      "description": "Maximum number of times to retry a trial that was not completed correctly. Unlimited if null."
+    }
+  }
+}

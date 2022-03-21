@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/schema",
+  "title": "Item",
+  "description": "A stimulus item configuration for marmtouch",
+  "type": "object",
+  "properties": {
+    "type": {
+      "title": "Stimulus Type",
+      "type": "string",
+      "enum": ["image","circle","square","triangle","hexagon","star","cross"]
+    },
+    "loc": {
+      "title": "Stimulus Location",
+      "description": "Stimulus is drawn centered at these coordinates",
+      "type": "array",
+      "items": {"type": "integer"}
+    },
+    "window": {
+      "title": "Stimulus Window",
+      "description": "If stimulus can be touched, this window is used to determine the the bounding box.  Provide a [w,h] tuple for a rect centered at loc.",
+      "type": "array",
+      "items": {"type": "integer"}
+    },
+    "color": {
+      "$ref": "./color.json"
+    },
+    "radius": {
+      "title": "Radius",
+      "description": "Radius of the stimulus to be drawn",
+      "type": "integer"
+    },
+    "path": {
+      "title": "Path",
+      "description": "Absolute path for stimulus data. Used for type=='image'",
+      "type": "string"
+    },
+    "width": {
+      "title": "Width",
+      "description": "Used to set width of arms for stimulus type='cross'"
+    },
+    "start_angle": {
+      "title": "Start angle",
+      "description": "Sets the angle of the first vertex for polygons/stars. Effectively rotates the stimulus.",
+      "type": "integer",
+      "minimum": 0,
+      "exclusiveMaximum": 360
+    }
+  },
+  "anyOf": [
+    {
+      "properties": {
+        "type": { "const": "image" }
+      },
+      "required": ["path"]
+    },
+    {
+      "properties": {
+        "type": { "enum": ["circle","square","triangle","hexagon","star","cross"]}
+      },
+      "required": ["radius", "color"]
+    }
+  ]
+}
