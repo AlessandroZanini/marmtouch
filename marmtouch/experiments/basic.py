@@ -109,10 +109,7 @@ class Basic(Experiment):
                     return
 
             # initialize trial parameters
-            if self.blocks is None:
-                condition = random.choice(list(self.conditions.keys()))
-            else:
-                condition = self.get_condition()
+            condition = self.get_condition()
             stimuli = {
                 stimulus: self.get_item(self.conditions[condition][stimulus])
                 for stimulus in ["target", "correct", "incorrect"]
@@ -164,10 +161,10 @@ class Basic(Experiment):
             self.screen.fill(self.background)
             self.flip()
 
+            # end of trial cleanup
             if self.camera is not None:
                 self.camera.stop_recording()
             self.dump_trialdata(trialdata)
             trial += 1
             self.info[condition][trialdata["target_touch"]] += 1
-            if self.blocks is not None:
-                self.update_condition_list(correct=(trialdata["target_touch"] == 1))
+            self.update_condition_list(correct=(trialdata["target_touch"] == 1))

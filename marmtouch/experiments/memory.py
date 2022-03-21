@@ -114,6 +114,8 @@ class Memory(Experiment, DelayMixin):
                             break
                     else:
                         info["tapped"] = "outside"
+                        if self.options.get('ignore_outside',False):
+                            continue
 
                     if self.options.get("ignore_incorrect", False):
                         continue
@@ -161,10 +163,7 @@ class Memory(Experiment, DelayMixin):
                 return
 
             # initialize trial parameters
-            if self.blocks is None:
-                condition = random.choice(list(self.conditions.keys()))
-            else:
-                condition = self.get_condition()
+            condition = self.get_condition()
 
             stimuli = {
                 stimulus: self.get_item(self.conditions[condition][stimulus])
@@ -264,13 +263,13 @@ class Memory(Experiment, DelayMixin):
             self.screen.fill(self.background)
             self.flip()
 
+            # end of trial cleanup
             if self.camera is not None:
                 self.camera.stop_recording()
             self.dump_trialdata(trialdata)
             trial += 1
             self.info[condition, timing["delay_duration"]][outcome] += 1
-            if self.blocks is not None:
-                self.update_condition_list(correct=(outcome == 1))
+            self.update_condition_list(correct=(outcome == 1))
 
     def update_info(self, trial):
         info = f"{self.params['monkey']} {self.params['task']} Trial#{trial}\n"
