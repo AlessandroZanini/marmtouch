@@ -1,12 +1,12 @@
-from marmtouch.experiments.base import Experiment
-from marmtouch.experiments.mixins.task_components.delay import DelayMixin
-
-from collections import Counter
-from itertools import product
 import random
 import time
+from collections import Counter
+from itertools import product
 
 import pygame
+
+from marmtouch.experiments.base import Experiment
+from marmtouch.experiments.mixins.task_components.delay import DelayMixin
 
 
 class Memory(Experiment, DelayMixin):

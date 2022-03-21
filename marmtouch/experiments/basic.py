@@ -1,8 +1,8 @@
-from marmtouch.experiments.base import Experiment
-
-from collections import Counter
 import random
 import time
+from collections import Counter
+
+from marmtouch.experiments.base import Experiment
 
 
 class Basic(Experiment):

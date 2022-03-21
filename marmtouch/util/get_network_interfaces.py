@@ -1,10 +1,14 @@
-from netifaces import interfaces, ifaddresses, AF_INET
+from netifaces import AF_INET, ifaddresses, interfaces
+
+
 def get_network_interfaces():
     all_addresses = {}
     for interface_name in interfaces():
         addresses = [
-            interface['addr'] 
-            for interface in ifaddresses(interface_name).setdefault(AF_INET, [{'addr':'No IP addr'}] )
+            interface["addr"]
+            for interface in ifaddresses(interface_name).setdefault(
+                AF_INET, [{"addr": "No IP addr"}]
+            )
         ]
-        all_addresses[interface_name] = ' '.join(addresses)
+        all_addresses[interface_name] = " ".join(addresses)
     return all_addresses

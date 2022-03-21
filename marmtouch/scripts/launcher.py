@@ -1,16 +1,18 @@
-from marmtouch.scripts.transfer_files import bulk_transfer_files
-from marmtouch.util.get_network_interfaces import get_network_interfaces
-import marmtouch.util as util
-
-import tkinter as tk
-from pathlib import Path
-from functools import partial
 import time
+import tkinter as tk
+from functools import partial
+from pathlib import Path
 
 import click
 
+import marmtouch.util as util
+from marmtouch.scripts.transfer_files import bulk_transfer_files
+from marmtouch.util.get_network_interfaces import get_network_interfaces
 
-button_params = dict(height=3, width=20, relief=tk.FLAT, bg="gray99", fg="purple3", font="Dosis")
+button_params = dict(
+    height=3, width=20, relief=tk.FLAT, bg="gray99", fg="purple3", font="Dosis"
+)
+
 
 class VerticalScrolledFrame(tk.Frame):
     """A pure Tkinter scrollable frame that actually works!
@@ -19,14 +21,16 @@ class VerticalScrolledFrame(tk.Frame):
     * Construct and pack/place/grid normally
     * This frame only allows vertical scrolling
     """
+
     def __init__(self, parent, *args, **kw):
-        tk.Frame.__init__(self, parent, *args, **kw)            
+        tk.Frame.__init__(self, parent, *args, **kw)
 
         # create a canvas object and a vertical scrollbar for scrolling it
         vscrollbar = tk.Scrollbar(self, orient=tk.VERTICAL)
         vscrollbar.pack(fill=tk.Y, side=tk.RIGHT, expand=tk.FALSE)
-        canvas = tk.Canvas(self, bd=0, highlightthickness=0,
-                        yscrollcommand=vscrollbar.set)
+        canvas = tk.Canvas(
+            self, bd=0, highlightthickness=0, yscrollcommand=vscrollbar.set
+        )
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE)
         vscrollbar.config(command=canvas.yview)
 
@@ -36,8 +40,7 @@ class VerticalScrolledFrame(tk.Frame):
 
         # create a frame inside the canvas which will be scrolled with it
         self.interior = interior = tk.Frame(canvas)
-        interior_id = canvas.create_window(0, 0, window=interior,
-                                           anchor=tk.NW)
+        interior_id = canvas.create_window(0, 0, window=interior, anchor=tk.NW)
 
         # track changes to the canvas and frame width and sync them,
         # also updating the scrollbar
@@ -49,23 +52,25 @@ class VerticalScrolledFrame(tk.Frame):
                 # update the canvas's width to fit the inner frame
                 canvas.config(width=interior.winfo_reqwidth())
 
-        interior.bind('<Configure>', _configure_interior)
+        interior.bind("<Configure>", _configure_interior)
 
         def _configure_canvas(event):
             if interior.winfo_reqwidth() != canvas.winfo_width():
                 # update the inner frame's width to fill the canvas
                 canvas.itemconfigure(interior_id, width=canvas.winfo_width())
-        canvas.bind('<Configure>', _configure_canvas)
+
+        canvas.bind("<Configure>", _configure_canvas)
+
 
 class Launcher:
-    def __init__(self,config_directory):
+    def __init__(self, config_directory):
         self._init()
         self.config_directory = Path(config_directory)
         self.buttons = []
         self.labels = []
         self.job_selector()
         self.root.mainloop()
-    
+
     def _reset_gui(self):
         for button in self.buttons:
             button.destroy()
@@ -73,9 +78,11 @@ class Launcher:
             label.destroy()
         self.labels = []
         self.buttons = []
-    
+
     def _add_button(self, text, command):
-        button = tk.Button(self.scframe.interior, text=text, command=command, **button_params)
+        button = tk.Button(
+            self.scframe.interior, text=text, command=command, **button_params
+        )
         button.pack(padx=10, pady=5, side=tk.TOP)
         self.buttons.append(button)
 
@@ -86,15 +93,15 @@ class Launcher:
         self.root.configure(background="gray99")
         self.scframe = VerticalScrolledFrame(self.root)
         self.scframe.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE)
-    
+
     def job_selector(self):
         self._reset_gui()
         jobs = [
-            dict(text='Transfer', command=bulk_transfer_files),
-            dict(text='Camera preview', command=self.preview_camera),
-            dict(text='Test GPIO', command=self.test_GPIO_selector),
-            dict(text='Tasks', command=self.task_selector),
-            dict(text='Exit', command=self.exit)
+            dict(text="Transfer", command=bulk_transfer_files),
+            dict(text="Camera preview", command=self.preview_camera),
+            dict(text="Test GPIO", command=self.test_GPIO_selector),
+            dict(text="Tasks", command=self.task_selector),
+            dict(text="Exit", command=self.exit),
         ]
         for job in jobs:
             self._add_button(**job)
@@ -102,26 +109,28 @@ class Launcher:
         # display network interfaces and IP addresses on home display
         addresses = get_network_interfaces()
         addresses = "\n".join([f"{k}: {v}" for k, v in addresses.items()])
-        addresses_label = tk.Label(self.scframe.interior, text = addresses)
+        addresses_label = tk.Label(self.scframe.interior, text=addresses)
         addresses_label.pack(padx=10, pady=5, side=tk.TOP)
         self.labels.append(addresses_label)
 
     def test_GPIO(self, port):
         from marmtouch.util import TTL
+
         TTL(port).pulse()
 
     def test_GPIO_selector(self):
         self._reset_gui()
         jobs = [
-            dict(text='reward', command=partial(self.test_GPIO, port=11)),
-            dict(text='sync',command=partial(self.test_GPIO, port=16)),
-            dict(text='<<',command=self.job_selector)
+            dict(text="reward", command=partial(self.test_GPIO, port=11)),
+            dict(text="sync", command=partial(self.test_GPIO, port=16)),
+            dict(text="<<", command=self.job_selector),
         ]
         for job in jobs:
             self._add_button(**job)
 
     def preview_camera(self):
         from picamera import PiCamera
+
         camera = PiCamera()
         camera.start_preview()
         time.sleep(30)
@@ -129,40 +138,54 @@ class Launcher:
 
     def task_selector(self):
         self._reset_gui()
-        task_list = [f for f in self.config_directory.iterdir() if f.is_dir() and not f.name.startswith('.')]
+        task_list = [
+            f
+            for f in self.config_directory.iterdir()
+            if f.is_dir() and not f.name.startswith(".")
+        ]
         for task in task_list:
-            self._add_button(text=task.name, command=partial(self.config_selector, task))
-        self._add_button(text='<<', command=self.job_selector)
+            self._add_button(
+                text=task.name, command=partial(self.config_selector, task)
+            )
+        self._add_button(text="<<", command=self.job_selector)
 
     def config_selector(self, task):
         self._reset_gui()
-        config_list = list(task.glob('*.yaml'))
+        config_list = list(task.glob("*.yaml"))
         for config in config_list:
-            self._add_button(text=config.stem, command=partial(self.run, task=task, config=config))
-        self._add_button(text='<<', command=self.task_selector)
+            self._add_button(
+                text=config.stem, command=partial(self.run, task=task, config=config)
+            )
+        self._add_button(text="<<", command=self.task_selector)
 
     def run(self, task, config):
         params = util.read_yaml(config)
         session = time.strftime("%Y-%m-%d_%H-%M-%S")
-        data_dir = Path('/home/pi/Touchscreen', session)
-        if task.name in ['basic','random','reversal']:
+        data_dir = Path("/home/pi/Touchscreen", session)
+        if task.name in ["basic", "random", "reversal"]:
             from marmtouch.experiments.basic import Basic
+
             experiment = Basic(data_dir, params)
-        elif task.name in ['memory','cued','vmcl']:
+        elif task.name in ["memory", "cued", "vmcl"]:
             from marmtouch.experiments.memory import Memory
+
             experiment = Memory(data_dir, params)
-        elif task.name in ['match', 'nonmatch']:
+        elif task.name in ["match", "nonmatch"]:
             from marmtouch.experiments.dms import DMS
+
             experiment = DMS(data_dir, params)
         else:
-            raise ValueError(f'Task {task.name} not supported!')
+            raise ValueError(f"Task {task.name} not supported!")
         experiment.run_safe()
         self.exit()
 
     def exit(self):
         self.root.destroy()
 
-default_config_directory = '/home/pi/configs/'
+
+default_config_directory = "/home/pi/configs/"
+
+
 @click.command()
 def launch():
     Launcher(default_config_directory)

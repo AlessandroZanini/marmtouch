@@ -1,13 +1,13 @@
+import random
+import time
+from collections import Counter
+from itertools import combinations, product
+
+import pygame
+
 from marmtouch.experiments.base import Experiment
 from marmtouch.experiments.mixins.task_components.delay import DelayMixin
 from marmtouch.util.parse_csv import parse_csv
-
-from collections import Counter
-from itertools import product, combinations
-import random
-import time
-
-import pygame
 
 
 class DMS(Experiment, DelayMixin):

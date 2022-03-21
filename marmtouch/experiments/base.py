@@ -1,17 +1,17 @@
+import random
+import time
+import warnings
+from collections import Counter
+from itertools import cycle
+from pathlib import Path
+
+import pygame
+import RPi.GPIO as GPIO
+import yaml
+
 import marmtouch.util as util
 from marmtouch.experiments.mixins.artist import ArtistMixin
 from marmtouch.experiments.mixins.events import EventsMixin
-
-from pathlib import Path
-import time
-import random
-from itertools import cycle
-from collections import Counter
-import warnings
-
-import RPi.GPIO as GPIO
-import pygame
-import yaml
 
 
 class Experiment(ArtistMixin, EventsMixin):
@@ -55,8 +55,9 @@ class Experiment(ArtistMixin, EventsMixin):
         radius=100,
         window=(300, 300),
     )
+    DEFAULT_BLOCK_LENGTH = 100
     DEFAULT_TTL_OUT = {"reward": 11, "sync": 16}
-    # TODO: allow overwriting system_config_path from arg
+
     def __init__(
         self,
         data_dir,
@@ -127,7 +128,7 @@ class Experiment(ArtistMixin, EventsMixin):
             blocks = [
                 {
                     "conditions": list(self.conditions.keys()),
-                    "length": len(self.conditions),
+                    "length": self.DEFAULT_BLOCK_LENGTH,
                 }
             ]
         self.blocks = cycle(blocks)
