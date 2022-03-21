@@ -12,6 +12,7 @@ setup(
     author_email='seljanahan@hotmail.com',
     keywords=['touchscreen','experiment'],
     install_requires=[
+        "netifaces",
         "pyyaml",
         "pygame",
         "click",

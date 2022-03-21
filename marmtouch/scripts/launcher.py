@@ -103,6 +103,7 @@ class Launcher:
         addresses = get_network_interfaces()
         addresses = "\n".join([f"{k}: {v}" for k, v in addresses.items()])
         addresses_label = tk.Label(self.root, text = addresses)
+        addresses_label.pack(padx=10, pady=5, side=tk.TOP)
         self.labels.append(addresses_label)
 
     def test_GPIO(self, port):
