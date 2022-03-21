@@ -32,8 +32,9 @@ def _transfer_files(videos_directory, server_path, verbose=True):
         copy_no += 1
     try:
         server_session_path.mkdir()
-    except:
+    except Exception as e:
         print(f"Failed to create directory {server_session_path}.")
+        print(e)
         return
     logger = util.getLogger(logger_path.as_posix(), capture_errors=False)
     videos = set(video for video in videos_directory.iterdir() if video.is_file())
@@ -94,6 +95,15 @@ def bulk_transfer_files(source=default_source,dest=default_destination,mount=Tru
         subprocess.Popen('sudo mount -a',shell=True)
     videos_directory = Path(source)
     server_path = Path(dest)
+
+    TIMEOUT = 60
+    T_INTERVAL = 5
+    start_time = time.time()
+    while not server_path.is_dir():
+        if time.time()-start_time > TIMEOUT:
+            raise ValueError("Timed out. Could not connect to server!")
+        print('Waiting for server mount...')
+        time.sleep(T_INTERVAL)
     sessions = [f for f in videos_directory.iterdir() if f.is_dir()]
     for session_directory in tqdm(sessions, desc='sessions'):
         _transfer_files(session_directory, server_path)
