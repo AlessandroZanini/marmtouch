@@ -63,7 +63,7 @@ def _transfer_files(videos_directory, server_path, verbose=True):
     for video_file in tqdm(videos_to_copy, desc="video"):
         target = server_session_path / video_file.name
         try:
-            shutil.copy(video_file.as_posix(), target.as_posix())
+            shutil.copy(video_file.as_posix(), target.as_posix(), follow_symlinks=False)
         except:
             logger.warn(f"Failed to copy {video_file}", exc_info=verbose)
             failed.append((video_file, target))
@@ -81,7 +81,7 @@ def _transfer_files(videos_directory, server_path, verbose=True):
 
     if failed:
         logger.warn(
-            f"{len(failed)} files did not transfer at all. Failed to copy: {', '.join(failed)}"
+            f"{len(failed)} files did not transfer at all. Failed to copy: {', '.join(map(str, failed))}"
         )
 
     if corrupt:
