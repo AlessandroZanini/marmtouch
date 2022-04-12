@@ -69,41 +69,32 @@ Replace {USER} and {PASS} with your serve access credentials
 > * `G` goes to the end of the file
 > * `o` adds a new line and enters edit mode below cursor
 > * `ZZ` saves the file and exits
-
+> 
+Create the mount point and mount the server
+```bash
+sudo mkdir /mnt/Data
+sudo mount -a
+```
 
 ## 4. Setting up marmtouch
 
 ### 4.1. Install the python package
 Use pip3 to install the package from the server
 ```bash
-pip3 install git+file:///mnt/Data/Touchscreen/marmtouch -U
+sudo pip3 install git+file:///mnt/Data/Touchscreen/marmtouch -U
+```
+Make sure to create the Touchscreen folder where data will be saved
+```bash
+mkdir ~/Touchscreen
 ```
 
-### 4.2. Update the path
-For everything to work properly you should add the local bin directory to the path  
-Open the file in vim
-```bash
-vim ~/.bashrc
-```
-Add the following line to the end
-```bash
-export PATH="$PATH;/home/pi/.local/bin"
-```
-Repeat this process for: `~/.profile`  
-For changes to take effect across sessions, *restart pi*  
-
-Ensure the changes took effect by booting up a terminal session and running
-```bash
-marmtouch launch
-```
-
-### 4.3. Set up the shortcut
+### 4.2. Set up the shortcut
 1. Navigate to the main menu editor:  
    Raspberry Pi Start Menu --> Preferences --> `Main Menu Editor`
 2. Select `Other` and Click `New Item`
 3. Input the following parameters and confirm 
    > Name: `marmtouch`  
-   > Command: `marmtouch launch`  
+   > Command: `sudo marmtouch launch`  
    > Launch in terminal: Set to `True`  
    > &nbsp;  
    > (OPTIONAL) add an icon
@@ -111,22 +102,23 @@ marmtouch launch
    > 2. Copy it to /home/pi/Pictures
    > 3. Click on the icon in this menu, and select the image file you copied over
 4. Right click on the task bar and open `Panel Settings`
-5. Select `Application Launch Bar` and click `Preferences`
-6. Navigate to `Other > marmtouch`
-7. Click `Add` to add it to the launch bar
-8. Click `Up` until it is at the top of the list
+5. Navigate to the `Panel Applet` Tab
+6. Select `Application Launch Bar` and click `Preferences`
+7. Navigate to `Other > marmtouch`
+8. Click `Add` to add it to the launch bar
+9. Click `Up` until it is at the top of the list
 
 You should see the marmtouch program on the launch bar beside the Raspberry Pi Start Menu icon.  
 Clicking it should open the marmtouch launcher  
 
-### 4.4. Import necessary files
+### 4.3. Import necessary files
 Copy over the config and stimuli files
 ```bash
 cp /mnt/Data/Touchscreen/configs/. ~/configs -r
 cp /mnt/Data/Touchscreen/stimuli/. ~/stimuli -r
 ```
 
-### 4.5. Set up system config
+### 4.4. Set up system config
 Copy marmtouch_system_config.yaml from setup folder
 ```bash
 cp /mnt/Data/Touchscreen/setup/marmtouch_system_config.yaml ~/
@@ -136,7 +128,7 @@ critical fields are:
 * the ttl port numbers (must atleast define `reward` and `sync`)
 * the "has_camera" flag (boolean)
 
-### 4.6. Confirm monitor resolution
+### 4.5. Confirm monitor resolution
 The program currently uses hard-coded screen coordinates for stimulus presentation  
 For this, the resolution is assumed to be **1280x800**  
 

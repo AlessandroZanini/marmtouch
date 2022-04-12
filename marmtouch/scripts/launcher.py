@@ -97,7 +97,7 @@ class Launcher:
     def job_selector(self):
         self._reset_gui()
         jobs = [
-            dict(text="Transfer", command=bulk_transfer_files),
+            dict(text="Transfer Files", command=bulk_transfer_files),
             dict(text="Camera preview", command=self.preview_camera),
             dict(text="Test GPIO", command=self.test_GPIO_selector),
             dict(text="Tasks", command=self.task_selector),
