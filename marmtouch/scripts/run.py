@@ -32,7 +32,12 @@ import marmtouch.util as util
     default=True,
     help="Enables touching info screen to exit",
 )
-def run(task, params_path, preview, camera, debug, directory, touch_exit):
+@click.option(
+    '--fullscreen/--windowed',
+    default=True,
+    help='Enables fullscreen mode.  Default, enabled',
+)
+def run(task, params_path, preview, camera, debug, directory, touch_exit, fullscreen):
     if task == "basic":
         from marmtouch.experiments.basic import Basic as Task
     elif task == "memory":
@@ -54,5 +59,6 @@ def run(task, params_path, preview, camera, debug, directory, touch_exit):
         camera=camera,
         debug_mode=debug,
         touch_exit=touch_exit,
+        fullscreen=fullscreen,
     )
     experiment.run_safe()

@@ -1,35 +1,43 @@
 import time
+
 import pygame
+
 
 class EventsMixin:
     def parse_events(self):
-        event_time = time.time() - self.start_time
+        if not self.running:
+            return []
+        default_event_data = {}
+        if self.trial is None:
+            default_event_data["trial"] = len(self.behdata)
+            default_event_data["state"] = "ITI"
+        else:
+            default_event_data["trial"] = self.trial.data["trial"]
+            default_event_data["state"] = "TASK"
+        default_event_data["time"] = time.time() - self.start_time
         event_stack = []
         exit_ = False
         for event in pygame.event.get():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mouseX, mouseY = pygame.mouse.get_pos()
-                event_stack.append({
-                    'type':'mouse_down',
-                    'time':event_time,
-                    'mouseX':mouseX,
-                    'mouseY':mouseY
-                })
-                if mouseX<300:
+                event_stack.append(
+                    dict(
+                        type="mouse_down",
+                        mouseX=mouseX,
+                        mouseY=mouseY,
+                        **default_event_data
+                    )
+                )
+                if mouseX < 300:
                     exit_ = True
             if event.type == pygame.QUIT:
-                event_stack.append({
-                    'type':'QUIT',
-                    'time':event_time
-                })
+                event_stack.append(dict(type="QUIT", **default_event_data))
                 exit_ = True
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    event_stack.append({
-                        'type':'key_down',
-                        'time':event_time,
-                        'key':'escape'
-                    })
+                    event_stack.append(
+                        dict(type="key_down", key="escape", **default_event_data)
+                    )
                     exit_ = True
         self.events.extend(event_stack)
         if exit_:
@@ -40,10 +48,10 @@ class EventsMixin:
     def get_first_tap(event_stack):
         taps = []
         for event in event_stack:
-            if event['type'] == 'mouse_down':
-                taps.append((event['mouseX'],event['mouseY']))
+            if event["type"] == "mouse_down":
+                taps.append((event["mouseX"], event["mouseY"]))
         if taps:
-            return taps[0] #return the first tap in the queue - is this necessary?
+            return taps[0]  # return the first tap in the queue - is this necessary?
         else:
             return None
 
@@ -65,5 +73,6 @@ class EventsMixin:
             whether or not the tap was in the window
         """
         winx, winy = window
-        return abs(tap[0] - target[0]) < (winx/2) \
-            and abs(tap[1] - target[1]) < (winy/2)
+        return abs(tap[0] - target[0]) < (winx / 2) and abs(tap[1] - target[1]) < (
+            winy / 2
+        )
