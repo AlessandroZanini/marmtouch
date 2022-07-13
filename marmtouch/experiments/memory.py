@@ -7,6 +7,7 @@ import pygame
 
 from marmtouch.experiments.base import Experiment
 from marmtouch.experiments.mixins.task_components.delay import DelayMixin
+from marmtouch.experiments.trialrecord import TrialRecord
 
 
 class Memory(Experiment, DelayMixin):
@@ -152,15 +153,8 @@ class Memory(Experiment, DelayMixin):
         self.start_time = time.time()
         while self.running:
             self.update_info(trial)
-
-            # iti
-            start_time = time.time()
-            while time.time() - start_time < self.options.get("iti", 5):
-                self.parse_events()
-                if not self.running:
-                    return
-            if not self.running:
-                return
+            self._run_intertrial_interval()
+            if not self.running: return
 
             # initialize trial parameters
             condition = self.get_condition()
@@ -193,8 +187,20 @@ class Memory(Experiment, DelayMixin):
             else:
                 stimuli["delay_distractor"] = None
 
+            if self.options.get("push_to_start", False):
+                start_result = self._start_trial()
+                if start_result is None:
+                    continue
+            self.TTLout["sync"].pulse(0.1)
+            if self.camera is not None:
+                self.camera.start_recording(
+                    (self.data_dir / f"{trial}.h264").as_posix()
+                )
+
+            # initialize trial parameters
             trial_start_time = time.time() - self.start_time
-            trialdata = dict(
+            self.trial = TrialRecord(
+                self.keys,
                 trial=trial,
                 trial_start_time=trial_start_time,
                 condition=condition,
@@ -206,17 +212,6 @@ class Memory(Experiment, DelayMixin):
                 **timing,
             )
 
-            if self.options.get("push_to_start", False):
-                start_result = self._start_trial()
-                if start_result is None:
-                    continue
-            self.TTLout["sync"].pulse(0.1)
-
-            if self.camera is not None:
-                self.camera.start_recording(
-                    (self.data_dir / f"{trial}.h264").as_posix()
-                )
-
             # run trial
             cue_result = self._show_cue(stimuli, timing)
             if cue_result is None:
@@ -225,7 +220,7 @@ class Memory(Experiment, DelayMixin):
                 "cue_touch_enabled", False
             ):
                 # If cue is exitable and no touch, do not run delay/sample.
-                trialdata.update(
+                self.trial.data.update(
                     {
                         "cue_touch": cue_result.get("touch", 0),
                         "cue_RT": cue_result.get("RT", 0),
@@ -248,7 +243,7 @@ class Memory(Experiment, DelayMixin):
                     )
                     if sample_result is None:
                         break
-                    trialdata.update(
+                    self.trial.data.update(
                         {
                             "cue_touch": cue_result.get("touch", 0),
                             "cue_RT": cue_result.get("RT", 0),
@@ -257,7 +252,7 @@ class Memory(Experiment, DelayMixin):
                             "tapped": sample_result.get("tapped", "none"),
                         }
                     )
-            outcome = trialdata["sample_touch"]
+            outcome = self.trial.data["sample_touch"]
 
             # wipe screen
             self.screen.fill(self.background)
@@ -266,7 +261,7 @@ class Memory(Experiment, DelayMixin):
             # end of trial cleanup
             if self.camera is not None:
                 self.camera.stop_recording()
-            self.dump_trialdata(trialdata)
+            self.dump_trialdata()
             trial += 1
             self.info[condition, timing["delay_duration"]][outcome] += 1
             self.update_condition_list(correct=(outcome == 1))

@@ -1,7 +1,7 @@
 import random
 import time
 import warnings
-from collections import Counter
+from collections import Counter, ChainMap
 from itertools import cycle
 from pathlib import Path
 
@@ -121,6 +121,7 @@ class Experiment(ArtistMixin, EventsMixin):
         self.start_duration = self.options.get("start_duration", self.start_duration)
         self.images = {}
 
+        self.trial = None
         blocks = params.get("blocks")
         if blocks is None:
             blocks = [
@@ -141,8 +142,9 @@ class Experiment(ArtistMixin, EventsMixin):
         self.TTLout["reward"].pulse(**self.reward)
 
     def get_duration(self, name):
-        # TODO: implement block specific timing?
-        duration = self.timing[name]
+        duration = ChainMap(self.active_block.get("timing", {}), self.timing).get(name, None)
+        if duration is None:
+            raise ValueError(f"{name} not in timing specification")
         if isinstance(duration, (int, float)):
             return duration
         else:
@@ -162,14 +164,14 @@ class Experiment(ArtistMixin, EventsMixin):
         self.running = False
         pygame.quit()
 
-    def dump_trialdata(self, trialdata={}):
-        # TODO: fix last trial off-by-one error with sync
+    def dump_trialdata(self):
+        if self.trial is None:
+            return
         with open(self.behdata_path.as_posix(), "a") as f:
-            f.write(
-                self.sep.join([str(trialdata.get(key, "nan")) for key in self.keys])
-            )
+            f.write(self.trial.dump())
             f.write("\n")
-        self.behdata.append(trialdata)
+        self.behdata.append(self.trial.data)
+        self.trial = None
 
     def init_block(self, block_info):
         self.active_block = block_info
@@ -279,6 +281,13 @@ class Experiment(ArtistMixin, EventsMixin):
     def flip(self):
         self.screen.blit(self.info_screen, (0, 0))
         pygame.display.update()
+
+    def _run_intertrial_interval(self, default_duration=5):
+        start_time = time.time()
+        while time.time() - start_time < self.options.get("iti", default_duration):
+            self.parse_events()
+            if not self.running:
+                return
 
     def _start_trial(self):
         self.screen.fill(self.background)

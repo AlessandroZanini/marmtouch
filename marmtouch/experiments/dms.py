@@ -7,6 +7,7 @@ import pygame
 
 from marmtouch.experiments.base import Experiment
 from marmtouch.experiments.mixins.task_components.delay import DelayMixin
+from marmtouch.experiments.trialrecord import TrialRecord
 from marmtouch.util.parse_csv import parse_csv
 
 
@@ -166,15 +167,8 @@ class DMS(Experiment, DelayMixin):
         self.start_time = time.time()
         while self.running:
             self.update_info(trial)
-
-            # iti
-            start_time = time.time()
-            while time.time() - start_time < self.options.get("iti", 5):
-                self.parse_events()
-                if not self.running:
-                    return
-            if not self.running:
-                return
+            self._run_intertrial_interval()
+            if not self.running: return
 
             # initialize trial parameters
             condition = self.get_condition()
@@ -185,8 +179,21 @@ class DMS(Experiment, DelayMixin):
                 f"{epoch}_duration": self.get_duration(epoch)
                 for epoch in ["sample", "delay", "test", "correct", "incorrect"]
             }
+
+            if self.options.get("push_to_start", True):
+                start_result = self._start_trial()
+                if start_result is None:
+                    continue
+            self.TTLout["sync"].pulse(0.1)
+            if self.camera is not None:
+                self.camera.start_recording(
+                    (self.data_dir / f"{trial}.h264").as_posix()
+                )
+
+            # initialize trial parameters
             trial_start_time = time.time() - self.start_time
-            trialdata = dict(
+            self.trial = TrialRecord(
+                self.keys,
                 trial=trial,
                 trial_start_time=trial_start_time,
                 condition=condition,
@@ -198,16 +205,6 @@ class DMS(Experiment, DelayMixin):
                 nonmatch_img=nonmatch_img,
                 **timing,
             )
-
-            if self.options.get("push_to_start", True):
-                start_result = self._start_trial()
-                if start_result is None:
-                    continue
-            self.TTLout["sync"].pulse(0.1)
-            if self.camera is not None:
-                self.camera.start_recording(
-                    (self.data_dir / f"{trial}.h264").as_posix()
-                )
 
             # run trial
             sample_result = self._show_sample(stimuli, timing)
@@ -231,7 +228,7 @@ class DMS(Experiment, DelayMixin):
                     )
                     if test_result is None:
                         break
-                    trialdata.update(
+                    self.trial.data.update(
                         {
                             "sample_touch": sample_result.get("touch", 0),
                             "sample_RT": sample_result.get("RT", 0),
@@ -239,7 +236,7 @@ class DMS(Experiment, DelayMixin):
                             "test_RT": test_result.get("RT", 0),
                         }
                     )
-            outcome = trialdata["test_touch"]
+            outcome = self.trial.data["test_touch"]
 
             # wipe screen
             self.screen.fill(self.background)
@@ -248,7 +245,7 @@ class DMS(Experiment, DelayMixin):
             # end of trial cleanup
             if self.camera is not None:
                 self.camera.stop_recording()
-            self.dump_trialdata(trialdata)
+            self.dump_trialdata()
             trial += 1
             self.itemid += 1
             self.info[condition, timing["delay_duration"]][outcome] += 1

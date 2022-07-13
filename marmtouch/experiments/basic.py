@@ -3,6 +3,7 @@ import time
 from collections import Counter
 
 from marmtouch.experiments.base import Experiment
+from marmtouch.experiments.trialrecord import TrialRecord
 
 
 class Basic(Experiment):
@@ -56,6 +57,8 @@ class Basic(Experiment):
                         start_time = time.time()
                         while (time.time() - start_time) < timing["correct_duration"]:
                             self.parse_events()
+                            if not self.running:
+                                return
                     else:
                         self.good_monkey()
                     self.screen.fill(self.background)
@@ -79,9 +82,13 @@ class Basic(Experiment):
                         start_time = time.time()
                         while (time.time() - start_time) < timing["incorrect_duration"]:
                             self.parse_events()
+                            if not self.running:
+                                return
                     self.screen.fill(self.background)
                     self.flip()
                     break
+        if not self.running:
+            return
         return info
 
     def run(self):
@@ -100,15 +107,11 @@ class Basic(Experiment):
 
         while self.running:
             self.update_info(trial)
+            self._run_intertrial_interval(3)
+            if not self.running:
+                return
 
-            # iti
-            start_time = time.time()
-            while time.time() - start_time < self.options.get("iti", 3):
-                self.parse_events()
-                if not self.running:
-                    return
-
-            # initialize trial parameters
+            # TODO: extract initialize trial parameters into a method and add stimuli/timing to self.trial
             condition = self.get_condition()
             stimuli = {
                 stimulus: self.get_item(self.conditions[condition][stimulus])
@@ -125,8 +128,23 @@ class Basic(Experiment):
                 f"{event}_duration": self.get_duration(event)
                 for event in ["target", "correct", "incorrect"]
             }
+
+            if self.options.get("push_to_start", False):
+                start_result = self._start_trial()
+                if start_result is None:
+                    continue
+                if not self.running:
+                    return
+            self.TTLout["sync"].pulse(0.1)
+            if self.camera is not None:
+                self.camera.start_recording(
+                    (self.data_dir / f"{trial}.h264").as_posix()
+                )
+
+            # initialize trial parameters
             trial_start_time = time.time() - self.start_time
-            trialdata = dict(
+            self.trial = TrialRecord(
+                self.keys,
                 trial=trial,
                 trial_start_time=trial_start_time,
                 condition=condition,
@@ -135,27 +153,18 @@ class Basic(Experiment):
                 **timing,
             )
 
-            if self.options.get("push_to_start", False):
-                start_result = self._start_trial()
-                if start_result is None:
-                    continue
-            self.TTLout["sync"].pulse(0.1)
-            if self.camera is not None:
-                self.camera.start_recording(
-                    (self.data_dir / f"{trial}.h264").as_posix()
-                )
-
             # run trial
             target_result = self._show_target(stimuli, timing)
             if target_result is None:
                 return
 
-            trialdata.update(
+            self.trial.data.update(
                 {
                     "target_touch": target_result.get("touch", 0),
                     "target_RT": target_result.get("RT", 0),
                 }
             )
+            outcome = self.trial.data["target_touch"]
 
             # wipe screen
             self.screen.fill(self.background)
@@ -164,7 +173,7 @@ class Basic(Experiment):
             # end of trial cleanup
             if self.camera is not None:
                 self.camera.stop_recording()
-            self.dump_trialdata(trialdata)
+            self.dump_trialdata()
             trial += 1
-            self.info[condition][trialdata["target_touch"]] += 1
-            self.update_condition_list(correct=(trialdata["target_touch"] == 1))
+            self.info[condition][outcome] += 1
+            self.update_condition_list(correct=(outcome == 1))
