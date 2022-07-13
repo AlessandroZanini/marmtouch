@@ -63,7 +63,8 @@ class VerticalScrolledFrame(tk.Frame):
 
 
 class Launcher:
-    def __init__(self, config_directory):
+    def __init__(self, config_directory, debug=False):
+        self.debug = debug
         self._init()
         self.config_directory = Path(config_directory)
         self.buttons = []
@@ -163,19 +164,14 @@ class Launcher:
         session = time.strftime("%Y-%m-%d_%H-%M-%S")
         data_dir = Path("/home/pi/Touchscreen", session)
         if task.name in ["basic", "random", "reversal"]:
-            from marmtouch.experiments.basic import Basic
-
-            experiment = Basic(data_dir, params)
+            from marmtouch.experiments.basic import Basic as Experiment
         elif task.name in ["memory", "cued", "vmcl"]:
-            from marmtouch.experiments.memory import Memory
-
-            experiment = Memory(data_dir, params)
+            from marmtouch.experiments.memory import Memory as Experiment
         elif task.name in ["match", "nonmatch"]:
-            from marmtouch.experiments.dms import DMS
-
-            experiment = DMS(data_dir, params)
+            from marmtouch.experiments.dms import DMS as Experiment
         else:
             raise ValueError(f"Task {task.name} not supported!")
+        experiment = Experiment(data_dir, params, debug_mode=self.debug)
         experiment.run_safe()
         self.exit()
 
@@ -187,5 +183,6 @@ default_config_directory = "/home/pi/configs/"
 
 
 @click.command()
-def launch():
-    Launcher(default_config_directory)
+@click.option('--debug/--no-debug', default=False)
+def launch(debug):
+    Launcher(default_config_directory, debug=debug)
