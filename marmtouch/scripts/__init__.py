@@ -8,6 +8,7 @@ from marmtouch.scripts.transfer_files import transfer_files
 
 
 @click.group()
+@click.version_option(version=__version__)
 def marmtouch():
     print(f"marmtouch version {__version__}")
 

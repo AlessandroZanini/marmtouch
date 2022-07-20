@@ -1,7 +1,7 @@
 import random
 import time
 import warnings
-from collections import Counter, ChainMap
+from collections import ChainMap, Counter
 from itertools import cycle
 from pathlib import Path
 
@@ -12,6 +12,7 @@ import yaml
 import marmtouch.util as util
 from marmtouch.experiments.mixins.artist import ArtistMixin
 from marmtouch.experiments.mixins.events import EventsMixin
+from marmtouch.util.svg2img import svg2img
 
 
 class Experiment(ArtistMixin, EventsMixin):
@@ -142,7 +143,9 @@ class Experiment(ArtistMixin, EventsMixin):
         self.TTLout["reward"].pulse(**self.reward)
 
     def get_duration(self, name):
-        duration = ChainMap(self.active_block.get("timing", {}), self.timing).get(name, None)
+        duration = ChainMap(self.active_block.get("timing", {}), self.timing).get(
+            name, None
+        )
         if duration is None:
             raise ValueError(f"{name} not in timing specification")
         if isinstance(duration, (int, float)):
@@ -270,12 +273,27 @@ class Experiment(ArtistMixin, EventsMixin):
             params["image"] = image
         return params
 
+    def get_svg_stimulus(self, path, **params):
+        params["type"] = "svg"
+        image = self.images.get(path)
+        if image is None:
+            self.images[path] = params["image"] = svg2img(
+                path, colour=params["colour"], size=params["size"]
+            )
+            if len(self.images) > self._image_cache_max_len:
+                self.images.pop(list(self.images.keys())[0])
+        else:
+            params["image"] = image
+        return params
+
     def get_item(self, item_key=None, **params):
         if item_key is not None:
             params.update(self.items[item_key])
             params["name"] = item_key
         if params["type"] == "image":
             params = self.get_image_stimulus(**params)
+        elif params["type"] == "svg":
+            params = self.get_svg_stimulus(**params)
         return params
 
     def flip(self):

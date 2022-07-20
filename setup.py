@@ -1,16 +1,14 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
     name="marmtouch",
     packages=find_packages(),
-    use_scm_version= {
-        'write_to': 'marmtouch/_version.py'
-    },
-    setup_requires=['setuptools_scm'],
+    use_scm_version={"write_to": "marmtouch/_version.py"},
+    setup_requires=["setuptools_scm"],
     description="Experiment control software for marmoset touch screen apparatus",
-    author='Janahan Selvanayagam',
-    author_email='seljanahan@hotmail.com',
-    keywords=['touchscreen','experiment'],
+    author="Janahan Selvanayagam",
+    author_email="seljanahan@hotmail.com",
+    keywords=["touchscreen", "experiment"],
     install_requires=[
         "netifaces",
         "pyyaml",
@@ -18,11 +16,12 @@ setup(
         "click",
         "RPi.GPIO",
         "picamera",
-        "tqdm"
+        "tqdm",
+        "cairosvg",
     ],
-    entry_points='''
+    entry_points="""
         [console_scripts]
         marmtouch=marmtouch.scripts:marmtouch
-    ''',
-    zip_safe=False
+    """,
+    zip_safe=False,
 )

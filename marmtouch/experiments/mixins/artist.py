@@ -76,9 +76,12 @@ class ArtistMixin:
             self.draw_cross(
                 params["radius"], params["color"], params["loc"], params.get("width", 1)
             )
-        elif params["type"] == "image":
+        elif params["type"] in ["image", "svg"]:
             img = params["image"]
             img_rect = img.get_rect(center=params["loc"])
+            rotation = params.get("rotation", 0)
+            if rotation:
+                img = pygame.transform.rotate(img, rotation)
             self.screen.blit(img, img_rect)
         if self.debug_mode and "window" in params:
             w, h = params["window"]

@@ -29,3 +29,8 @@ marmtouch run [experiment] [params_path]
 
 The `marmtouch make-shortcut` utility can be used to make a desktop shortcut to easily launch on a touchscreen [under development]  
 The `marmtouch transfer-files` utility can be used to transfer the files to a server or external storage device
+
+## Citing
+
+If using this code, please cite:  
+> Selvanayagam J, Wong RK, Everling S. 2021. Marmtouch: Experimental control for touchscreen experiments using a raspberry pi.
