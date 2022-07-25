@@ -23,6 +23,8 @@ class DMS(Experiment, DelayMixin):
         "sample_duration",
         "delay_duration",
         "test_duration",
+        "correct_duration",
+        "incorrect_duration",
         "match_img",
         "nonmatch_img",
     )
