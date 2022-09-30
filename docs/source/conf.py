@@ -10,6 +10,7 @@ working_directory = Path(__file__).resolve().parents[2]
 simulated_packages = working_directory/'dev'/'simulated_packages'
 sys.path.append(working_directory.as_posix())
 sys.path.append(simulated_packages.as_posix())
+autodoc_mock_imports = ['tkinter','pygame','netifaces','yaml','pygame','tqdm','click','cairosvg']
 
 import marmtouch
 
