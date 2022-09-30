@@ -9,6 +9,7 @@ import pygame
 import RPi.GPIO as GPIO
 import yaml
 
+from marmtouch import __version__
 import marmtouch.util as util
 from marmtouch.experiments.mixins.artist import ArtistMixin
 from marmtouch.experiments.mixins.events import EventsMixin
@@ -28,13 +29,29 @@ class Experiment(ArtistMixin, EventsMixin):
         Must contain 'timing', 'items', 'conditions' and 'background' fields
         Optionally may include 'options', 'reward' to overwrite default settings
         May be further extended in subclasses
-    TTLout: dict, required
-    camera: bool, default=True
-    camera_preview: bool, default=True
+    TTLout: dict, default=None
+        Dictionary of TTL output pins
+        Must define 'reward' and 'sync' pins
+        If None, will use default pins defined in Experiment.DEFAULT_TTL_OUT
+    camera: bool, default=None
+        If True, initialize camera and record videos
+        If None, will be set to system_config['has_camera']
+    camera_preview: bool, default=False
+        If True, show camera preview window
+        WARNING: This can overload the GPU and cause the system to crash
     camera_preview_window: tuple of int, default: (0,600,320,200)
+        Window position and size for camera preview
     fullscreen: bool, default=True
+        If True, run experiment in fullscreen mode
     debug_mode: bool, default=False
+        If True, run experiment in debug mode
+        In debug mode, some setup steps are skipped and the stimulus windows are displayed
     touch_exit: bool, default=True
+        If True, exit experiment when touch is detected in the info screen
+        Else, experiment can only be exited by escape key.
+    system_config_path: Path or path-like, default=None
+        Path to system configuration file
+        If None, uses default path
 
     Notes
     -----
@@ -137,12 +154,40 @@ class Experiment(ArtistMixin, EventsMixin):
         self.behdata = []
         self.events = []
 
-        self.logger.info(f"experiment initialized")
+        self.logger.info(f"experiment initialized using marmtouch version {__version__}")
 
     def good_monkey(self):
+        """Rewards monkey 
+        
+        Pulses on `reward` pin as defined in `TTLout`
+        Pulse parameters are defined in `config.reward`
+        """
         self.TTLout["reward"].pulse(**self.reward)
 
     def get_duration(self, name):
+        """Get NAME duration
+        
+        The duration may be defined in timing dictionary at the top level
+        or in the timing dictionary of a specific block.
+
+        Time may be defined as a float or list of floats.  If a list, a random
+        value will be selected from the list.
+
+        Parameters
+        ----------
+        name: str
+            Name of duration to get
+        
+        Returns
+        -------
+        duration: float
+            Duration in seconds
+
+        Raises
+        ------
+        ValueError
+            If duration is not defined
+        """
         duration = ChainMap(self.active_block.get("timing", {}), self.timing).get(
             name, None
         )
@@ -154,11 +199,21 @@ class Experiment(ArtistMixin, EventsMixin):
             return random.choice(duration)
 
     def graceful_exit(self):
+        """Gracefully exit experiment
+        
+        Cleans up GPIO, stops and closes camera, saves behavioural and event data, and closes pygame window.
+        """
+        self.logger.info("graceful exit triggered")
         GPIO.cleanup()
-        if self.camera is not None and self.camera.recording:
-            self.camera.stop_recording()
-        if self.camera is not None and self.camera_preview:
-            self.camera.stop_preview()
+        self.logger.info("GPIO cleaned up")
+        if self.camera is not None:
+            if self.camera.recording:
+                self.camera.stop_recording()
+            if self.camera_preview:
+                self.camera.stop_preview()
+            self.camera.close()
+            self.logger.info("camera stopped and closed")
+
         self.dump_trialdata()
         self.logger.info("Behavioural data dumped.")
         with open(self.events_path.as_posix(), "w") as f:
@@ -166,8 +221,15 @@ class Experiment(ArtistMixin, EventsMixin):
         self.logger.info(f"Event data dumped. {len(self.events)} total records.")
         self.running = False
         pygame.quit()
+        self.logger.info("Pygame quit safely.")
 
     def dump_trialdata(self):
+        """Dump trial data to file
+        
+        If a trial is in progress, the available data is dumped.  Otherwise return
+
+        Once dumped, trial data is appended to history and cleared.
+        """
         if self.trial is None:
             return
         with open(self.behdata_path.as_posix(), "a") as f:
@@ -177,6 +239,36 @@ class Experiment(ArtistMixin, EventsMixin):
         self.trial = None
 
     def init_block(self, block_info):
+        """Initialize block
+        
+        Use block info to set up condition list, randomization method and retry method
+
+        Parameters
+        ----------
+        block_info: dict
+            Dictionary containing block information.  Must contain `conditions` and `length` keys.
+            Optionally defines `method`, `timing`, `retry_method`, `max_retries` and `weights`
+
+            conditions: list
+                List of condition names to use in block
+            length: int
+                Number of trials in block
+            method: str, default "random"
+                Method to use to select conditions.  Must be one of `random` or `incremental`
+            timing: dict, default None
+                Dictionary of timing parameters to use for this block
+            retry_method: str, default None
+                Method to use for retrying failed trials.  Must be one of `None`, `"immediate"` or `"delayed"`
+            max_retries: int, default None
+                Maximum number of retries to allow. If None, no limit is imposed.
+            weights: list, default None
+                list of weights for when randomizing conditions.  Must be same length as `conditions`
+        
+        Raises
+        ------
+        ValueError
+            If `method` is not one of `random` or `incremental`
+        """
         self.active_block = block_info
         method = block_info.get("method", "random")
         conditions = block_info["conditions"]
@@ -194,12 +286,54 @@ class Experiment(ArtistMixin, EventsMixin):
             raise ValueError("'method' must be one of ['random','incremental']")
 
     def get_condition(self):
+        """Get the condition for the next trial
+
+        If the condition list is empty, get the next block and initialize it.
+
+        Returns
+        -------
+        condition: 
+            Condition name
+        """
         if not self.condition_list:
             self.init_block(next(self.blocks))
         self.condition = self.condition_list.pop(0)
         return self.condition
 
     def update_condition_list(self, correct=True, trialunique=False):
+        """Update condition list
+
+        If the trial was completed correctly, do nothing
+
+        If the trial was completed incorrectly, determine how to update 
+        condition list based on the retry_method.
+        
+        If retry_method is None or max_retries has been reached 
+        for this condition, do nothing.
+
+        If retry_method is "immediate", insert the current condition 
+        back into the list at the first position.
+
+        If retry_method is "delayed", insert the current condition
+        back into the list at a random position.
+
+        Parameters
+        ----------
+        correct: bool, default True
+            Whether the trial was completed correctly
+        trialunique: bool, default False
+            Whether the experiment is set up to run in a trial unique manner
+        
+        Raises
+        ------
+        ValueError
+            If `retry_method` is not one of `None`, `"immediate"` or `"delayed"`
+        
+        Warns
+        -----
+        UserWarning
+            If using delayed retry method and `trialunique` is True
+        """
         if correct:
             return
 
@@ -229,6 +363,7 @@ class Experiment(ArtistMixin, EventsMixin):
             )
 
     def initialize(self):
+        """Initialize experiment"""
         pygame.init()
         if not self.debug_mode:
             util.setup_screen()
@@ -261,6 +396,20 @@ class Experiment(ArtistMixin, EventsMixin):
         self.session_txt_rect = self.session_txt.get_rect(bottomleft=(0, 800 - 30))
 
     def get_image_stimulus(self, path, **params):
+        """Get image stimulus
+
+        Parameters
+        ----------
+        path: str
+            Path to image file
+        params: dict
+            Dictionary of parameters for the stimulus
+        
+        Returns
+        -------
+        params: dict
+            Stimulus parameters with image data in `image` key
+        """
         params["type"] = "image"
         image = self.images.get(path)
         if image is None:
@@ -274,6 +423,22 @@ class Experiment(ArtistMixin, EventsMixin):
         return params
 
     def get_svg_stimulus(self, path, **params):
+        """Get SVG stimulus
+
+        Load an svg and rasterize using optional colour and size parameters
+
+        Parameters
+        ----------
+        path: str
+            Path to SVG file
+        params: dict
+            Dictionary of parameters for the stimulus
+
+        Returns
+        -------
+        params: dict
+            Stimulus parameters with image data in `image` key
+        """
         params["type"] = "svg"
         image = self.images.get(path)
         if image is None:
@@ -287,6 +452,25 @@ class Experiment(ArtistMixin, EventsMixin):
         return params
 
     def get_item(self, item_key=None, **params):
+        """Get item parameters
+
+        Get the item parameters using config file and parameters passed to the
+        function. If the item is an image, load the image and add it to the
+        image cache.  SVG files are rasterized using the colour and size
+        parameters.
+
+        Parameters
+        ----------
+        item_key: str, default None
+            Item key
+        params: dict
+            Dictionary of parameters for the stimulus
+        
+        Returns
+        -------
+        params: dict
+            Stimulus parameters
+        """
         if item_key is not None:
             params.update(self.items[item_key])
             params["name"] = item_key
@@ -297,28 +481,45 @@ class Experiment(ArtistMixin, EventsMixin):
         return params
 
     def flip(self):
+        """Updates the screen"""
         self.screen.blit(self.info_screen, (0, 0))
         pygame.display.update()
 
     def _run_intertrial_interval(self, default_duration=5):
+        """Run intertrial interval
+
+        Parameters
+        ----------
+        default_duration: int, default 5
+            Default duration of intertrial interval
+        """
+
         start_time = time.time()
-        while time.time() - start_time < self.options.get("iti", default_duration):
+        while self.running and time.time() - start_time < self.options.get("iti", default_duration):
             self.parse_events()
-            if not self.running:
-                return
 
     def _start_trial(self):
+        """Run push to start trial
+        
+        A stimulus, as defined in :opt:`start_stimulus` is displayed and the
+        subject must press it to start the trial within :opt:`start_duration`
+        seconds.
+
+        Returns
+        -------
+        info : dict or None
+            Dictionary of information about the trial start, or None if the
+            trial was aborted
+        """
         self.screen.fill(self.background)
         self.draw_stimulus(**self.start_stimulus)
         self.flip()
 
         start_time = current_time = time.time()
         info = {"touch": 0, "RT": 0}
-        while (current_time - start_time) < self.start_duration:
+        while self.running and (current_time - start_time) < self.start_duration:
             current_time = time.time()
             tap = self.get_first_tap(self.parse_events())
-            if not self.running:
-                return
             if tap is not None:
                 if self.was_tapped(
                     self.start_stimulus["loc"], tap, self.start_stimulus["window"]
@@ -332,6 +533,14 @@ class Experiment(ArtistMixin, EventsMixin):
                     return info
 
     def update_info(self, trial):
+        """Update info screen
+
+        Parameters
+        ----------
+        trial: int
+            Trial number
+        """
+
         info = f"{self.params['monkey']} {self.params['task']} Trial#{trial}\n"
         for condition, condition_info in self.info.items():
             info += f"Condition {condition}: {condition_info[1]: 3d} correct, {condition_info[2]+condition_info.get(3,0): 3d} incorrect\n"

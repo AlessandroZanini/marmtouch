@@ -12,7 +12,7 @@ import marmtouch.util as util
 @click.option(
     "--preview/--no-preview",
     default=False,
-    help="Enables camera preview in info screen",
+    help="Enables camera preview in info screen. Default, disabled.",
 )
 @click.option(
     "--camera/--no-camera",
@@ -38,6 +38,7 @@ import marmtouch.util as util
     help='Enables fullscreen mode.  Default, enabled',
 )
 def run(task, params_path, preview, camera, debug, directory, touch_exit, fullscreen):
+    """Uses marmtouch to run a task using the TASK experiment class and config at PARAMS_PATH."""
     if task == "basic":
         from marmtouch.experiments.basic import Basic as Task
     elif task == "memory":

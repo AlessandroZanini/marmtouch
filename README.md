@@ -27,7 +27,8 @@ Available experiments can be launched via:
 marmtouch run [experiment] [params_path]
 ```
 
-The `marmtouch make-shortcut` utility can be used to make a desktop shortcut to easily launch on a touchscreen [under development]  
+The `marmtouch launch` utility can be used to run tasks via a GUI that pulls config files from a defined directory.
+The `marmtouch preview-items` utility can be used to preview all items defined in a config file.
 The `marmtouch transfer-files` utility can be used to transfer the files to a server or external storage device
 
 ## Citing

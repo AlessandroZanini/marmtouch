@@ -19,8 +19,58 @@ sudo systemctl disable --now dhcpcd
 
 The rest of this set up can be done on western wifi/robarts network  
 
+## 2. Setting up the proxy server
 
-## 2. Remote access configuration
+To access apt and pypi repositories on restricted networks, you may have to set up a proxy server.  
+The proxy server address usually takes the form `http[s]://proxy.server:port` where port is usually 8080.
+
+For apt, this can be done via the apt conf proxy file:
+
+```bash
+vi /etc/apt/apt.conf.d/02proxy
+```
+
+and paste the following:
+
+```bash
+Acquire:{
+http::Proxy "http://proxy.server:port";
+https::Proxy "https://proxy.server:port";
+}
+```
+
+For PyPI, the proxy server can be set up at the system level.  
+Define the lowercase and uppercase versions. Ensure that the https_proxy points to the http link or 
+it will not work with PyPI.
+
+``` bash
+sudo vi /etc/environment
+```
+
+and paste the following
+
+```bash
+http_proxy=http://proxy.server:port
+https_proxy=http://proxy.server:port
+HTTP_PROXY=https://proxy.server:port
+HTTPS_PROXY=http://proxy.server:port
+```
+
+Restart the pi before proceeding.
+
+
+If this approach does not work with PyPI, export these as environment variables instead.
+
+This can be achieved easily by adding the following to your `.bashrc` file
+
+```bash
+export http_proxy=http://proxy.server:port
+export https_proxy=http://proxy.server:port
+export HTTP_PROXY=https://proxy.server:port
+export HTTPS_PROXY=http://proxy.server:port
+```
+
+## 3. Remote access configuration
 
 Some things need to be configured to be able to access this Pi via SSH or VNC
 
@@ -42,16 +92,16 @@ An IP Address should be listed that can be used to access the Pi.
 Test to make sure it is working
 
 
-## 3. Set up server access
+## 4. Set up server access
 
-### 3.1. Ensure required tools are available
+### 4.1. Ensure required tools are available
 ```bash
 sudo apt-get update
 sudo apt-get install vim -y
 sudo apt-get install cifs-utils -y
 ```
 
-### 3.2. Update configuration info
+### 4.2. Update configuration info
 Edit the fstab file using vim
 ```bash
 sudo vim /etc/fstab
@@ -76,9 +126,9 @@ sudo mkdir /mnt/Data
 sudo mount -a
 ```
 
-## 4. Setting up marmtouch
+## 5. Setting up marmtouch
 
-### 4.1. Install the python package
+### 5.1. Install the python package
 Use pip3 to install the package from the server
 ```bash
 sudo pip3 install git+file:///mnt/Data/Touchscreen/marmtouch -U
@@ -88,7 +138,7 @@ Make sure to create the Touchscreen folder where data will be saved
 mkdir ~/Touchscreen
 ```
 
-### 4.2. Set up the shortcut
+### 5.2. Set up the shortcut
 1. Navigate to the main menu editor:  
    Raspberry Pi Start Menu --> Preferences --> `Main Menu Editor`
 2. Select `Other` and Click `New Item`
@@ -111,14 +161,14 @@ mkdir ~/Touchscreen
 You should see the marmtouch program on the launch bar beside the Raspberry Pi Start Menu icon.  
 Clicking it should open the marmtouch launcher  
 
-### 4.3. Import necessary files
+### 5.3. Import necessary files
 Copy over the config and stimuli files
 ```bash
 cp /mnt/Data/Touchscreen/configs/. ~/configs -r
 cp /mnt/Data/Touchscreen/stimuli/. ~/stimuli -r
 ```
 
-### 4.4. Set up system config
+### 5.4. Set up system config
 Copy marmtouch_system_config.yaml from setup folder
 ```bash
 cp /mnt/Data/Touchscreen/setup/marmtouch_system_config.yaml ~/
@@ -128,7 +178,7 @@ critical fields are:
 * the ttl port numbers (must atleast define `reward` and `sync`)
 * the "has_camera" flag (boolean)
 
-### 4.5. Confirm monitor resolution
+### 5.5. Confirm monitor resolution
 The program currently uses hard-coded screen coordinates for stimulus presentation  
 For this, the resolution is assumed to be **1280x800**  
 

@@ -5,3 +5,5 @@ marmtouch/_version.py
 configs
 test
 .vscode
+releases
+build

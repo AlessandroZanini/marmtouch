@@ -11,6 +11,61 @@ from marmtouch.experiments.trialrecord import TrialRecord
 
 
 class Memory(Experiment, DelayMixin):
+    """A delayed match to location task.
+    
+    This task is a delayed match to location task. The task is to tap the
+    location of a cued stimulus location after a delay.
+
+    Task Structure
+    --------------
+    CUE
+        The :item:`cue` stimulus is presented for :time:`cue` seconds.
+        
+        If :opt:`cue_touch_enabled` is True, the subject must touch 
+        cue within :time:`cue` seconds to proceed. Otherwise, touches 
+        are logged and ignored.
+
+    DELAY
+        A blank screen is presented for :time:`delay` seconds, if :time:`delay` > 0.
+        If :time:`delay` <= 0, this phase is skipped.
+        
+        If :item:`delay_distractor` is defined, a distractor stimulus is
+        presented at :time:`delay_distractor_onset` seconds after delay 
+        onset for :time:`delay_distractor_duration` seconds.
+        Touches are logged and ignored.
+
+    SAMPLE
+        The :item:`target` and oally the :item:`distractors` are presented
+        for :time:`sample` seconds.  If :time:`delay` < 0, :item:`cue` is also
+        presented.
+
+        If :opt:`ignore_outside` is True, touches outside of the :item:`target`
+        and :item:`distractors` are ignored. Otherwise, touches outside of the 
+        :item:`target` and :item:`distractors` are treated as incorrect.
+
+        If :opt:`ignore_incorrect` is True, touches on :item:`distractors`
+        are logged and ignored.  If a correct response is made after an
+        incorrect response, the incorrect response is logged as outcome=3.
+
+        If :opt:`reward_incorrect` is True, touches on :item:`distractors`
+        are rewarded and trial is terminated.  No effect if 
+        :opt:`ignore_incorrect` is True.
+
+    Options
+    -------
+    cue_touch_enabled: bool, default False
+        If True, the subject must touch the cue to proceed from cue phase.
+    ignore_incorrect: bool, default False
+        If True, incorrect responses during the sample phase are ignored.
+        If the correct response is provided after the incorrect response, 
+        it is logged as outcome 3.
+    reward_incorrect: bool, default False
+        If True, incorrect responses during the sample phase are rewarded.
+    ignore_outside: bool, default False
+        If True, touches outside of the target and distractors are ignored.
+        Otherwise, touches outside of the target and distractors are treated 
+        as incorrect.
+    """
     keys = (
         "trial",
         "trial_start_time",

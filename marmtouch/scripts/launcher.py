@@ -183,6 +183,6 @@ default_config_directory = "/home/pi/configs/"
 
 
 @click.command()
-@click.option('--debug/--no-debug', default=False)
+@click.option('--debug/--no-debug', default=False, help='Run in debug mode, default is False')
 def launch(debug):
     Launcher(default_config_directory, debug=debug)
