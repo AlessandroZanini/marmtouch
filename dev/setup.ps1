@@ -38,7 +38,14 @@ foreach ( $params in $paths ) {
     safe-symboliclink $params[0] $params[1]
 }
 
+pip install -r dev/requirements.txt | Out-Null
+python setup.py --version
+
 $simulated_package_dir = (resolve-path dev\simulated_packages).Path
 $marmtouch_dir = (resolve-path .).Path
 $env:PYTHONPATH = "$env:PYTHONPATH;$simulated_package_dir;$marmtouch_dir"
-python -m marmtouch.scripts launch --debug
+
+echo "Use the following command to run the program:"
+echo ">>> python -m marmtouch.scripts launch"
+echo "Use the following command to run a specific task in debug mode:"
+echo ">>> python -m marmtouch.scripts run --debug --windowed TASK PARAMS_PATH"

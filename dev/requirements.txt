@@ -1,0 +1,6 @@
+cairosvg>=2.0.0
+click
+netifaces
+pyyaml
+pygame
+tqdm
