@@ -9,3 +9,5 @@ class PiCamera:
     def stop_recording(self, *args, **kwargs): 
         self.recording = False
         viewer.set_port('camera', 0)
+    def close(self, *args, **kwargs): 
+        pass

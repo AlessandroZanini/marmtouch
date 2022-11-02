@@ -19,6 +19,10 @@ class Basic(Experiment):
     )
     name = "Basic"
     info_background = (0, 0, 0)
+    info_breakdown_keys = {
+        "Condition": "condition",
+    }
+    outcome_key = "target_touch"
 
     def _show_target(self, stimuli, timing):
         self.screen.fill(self.background)
@@ -99,8 +103,6 @@ class Basic(Experiment):
                 "ignore_incorrect and reward_incorrect cannot both be true"
             )
         self.initialize()
-        self.info = {condition: Counter() for condition in self.conditions.keys()}
-
         trial = 0
         self.running = True
         self.start_time = time.time()
@@ -113,6 +115,9 @@ class Basic(Experiment):
 
             # TODO: extract initialize trial parameters into a method and add stimuli/timing to self.trial
             condition = self.get_condition()
+            if condition is None:
+                break
+
             stimuli = {
                 stimulus: self.get_item(self.conditions[condition][stimulus])
                 for stimulus in ["target", "correct", "incorrect"]
@@ -174,6 +179,7 @@ class Basic(Experiment):
             if self.camera is not None:
                 self.camera.stop_recording()
             self.dump_trialdata()
+            if self.reached_max_responses():
+                break
             trial += 1
-            self.info[condition][outcome] += 1
-            self.update_condition_list(correct=(outcome == 1))
+            self.update_condition_list(outcome)

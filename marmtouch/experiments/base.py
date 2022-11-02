@@ -9,8 +9,8 @@ import pygame
 import RPi.GPIO as GPIO
 import yaml
 
-from marmtouch import __version__
 import marmtouch.util as util
+from marmtouch import __version__
 from marmtouch.experiments.mixins.artist import ArtistMixin
 from marmtouch.experiments.mixins.events import EventsMixin
 from marmtouch.util.svg2img import svg2img
@@ -73,6 +73,11 @@ class Experiment(ArtistMixin, EventsMixin):
         radius=100,
         window=(300, 300),
     )
+    info_breakdown_keys = {
+        "Condition": "condition",
+    }
+    outcome_key = "target_touch"
+    
     DEFAULT_BLOCK_LENGTH = 100
     DEFAULT_TTL_OUT = {"reward": 11, "sync": 16}
 
@@ -141,6 +146,8 @@ class Experiment(ArtistMixin, EventsMixin):
 
         self.trial = None
         blocks = params.get("blocks")
+        self.max_blocks = self.options.get("n_blocks")
+        self.block_number = 0
         if blocks is None:
             blocks = [
                 {
@@ -232,6 +239,7 @@ class Experiment(ArtistMixin, EventsMixin):
         """
         if self.trial is None:
             return
+        self.update_info_data()
         with open(self.behdata_path.as_posix(), "a") as f:
             f.write(self.trial.dump())
             f.write("\n")
@@ -296,11 +304,18 @@ class Experiment(ArtistMixin, EventsMixin):
             Condition name
         """
         if not self.condition_list:
+            # check if we've reached the max number of blocks
+            if self.max_blocks is not None and self.block_number >= self.max_blocks:
+                self.graceful_exit()
+                self.condition = None
+                return
+            # otherwise increment and get next block
+            self.block_number += 1
             self.init_block(next(self.blocks))
         self.condition = self.condition_list.pop(0)
         return self.condition
 
-    def update_condition_list(self, correct=True, trialunique=False):
+    def update_condition_list(self, outcome, trialunique=False):
         """Update condition list
 
         If the trial was completed correctly, do nothing
@@ -334,7 +349,11 @@ class Experiment(ArtistMixin, EventsMixin):
         UserWarning
             If using delayed retry method and `trialunique` is True
         """
-        if correct:
+        #always ignore correct trials
+        if outcome == 1:
+            return
+        #if retry no response only, and no response, ignore
+        if self.active_block.get("retry_noresponse_only", False) and outcome != 0:
             return
 
         retry_method = self.active_block.get("retry_method")
@@ -375,10 +394,10 @@ class Experiment(ArtistMixin, EventsMixin):
             self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         else:
             self.screen = pygame.display.set_mode((1200, 800))
+        self.info = {}
         self.info_screen = pygame.Surface((350, 800))
         self.screen.fill(self.background)
         self.info_screen.fill(self.info_background)
-        self.font = pygame.font.Font(None, 30)
         self.session_font = pygame.font.Font(None, 40)
         self.flip()
 
@@ -532,6 +551,12 @@ class Experiment(ArtistMixin, EventsMixin):
                     }
                     return info
 
+    def update_info_data(self):
+        key = tuple(self.trial.data[key] for key in self.info_breakdown_keys.values())
+        if key not in self.info:
+            self.info[key] = Counter()
+        self.info[key][self.trial.data[self.outcome_key]] += 1
+
     def update_info(self, trial):
         """Update info screen
 
@@ -540,18 +565,23 @@ class Experiment(ArtistMixin, EventsMixin):
         trial: int
             Trial number
         """
+        overall = sum(self.info.values(), Counter())
+
+        info_font_size = min(250//max(len(self.info), 1), 30)
+        info_font = pygame.font.Font(None, info_font_size)
 
         info = f"{self.params['monkey']} {self.params['task']} Trial#{trial}\n"
-        for condition, condition_info in self.info.items():
-            info += f"Condition {condition}: {condition_info[1]: 3d} correct, {condition_info[2]+condition_info.get(3,0): 3d} incorrect\n"
-        overall = sum(self.info.values(), Counter())
-        info += f"Overall: {overall[1]: 3d} correct, {overall[2]+overall.get(3,0): 3d} incorrect, {overall[0]: 3d} no response"
+        info += f"Overall: {overall[1]: 3d} correct, {overall[2]+overall.get(3,0): 3d} incorrect, {overall[0]: 3d} no response\n"
+        for keys, trialcountdata in self.info.items():
+            header = ", ".join([f"{field} {key}" for field, key in zip(self.info_breakdown_keys, keys)])
+            trialcounts = f"{trialcountdata[1]: 3d} correct, {trialcountdata[2]+trialcountdata.get(3,0): 3d} incorrect"
+            info += f"{header}: {trialcounts}\n"
 
         self.info_screen.fill(self.info_background)
         for idx, line in enumerate(info.splitlines()):
-            txt = self.font.render(line, True, pygame.Color("GREEN"))
+            txt = info_font.render(line, True, pygame.Color("GREEN"))
             txt = pygame.transform.rotate(txt, 90)
-            self.info_screen.blit(txt, (idx * 30, 30))
+            self.info_screen.blit(txt, (idx * info_font_size, 30))
 
         self.info_screen.blit(self.session_txt, self.session_txt_rect)
 
@@ -573,3 +603,10 @@ class Experiment(ArtistMixin, EventsMixin):
             self.logger.error(err)
             self.graceful_exit()
             raise err
+
+    def reached_max_responses(self):
+        max_responses = self.options.get("max_responses")
+        if max_responses is None:
+            return False
+        n_responses = sum(trial[self.outcome_key] != 0 for trial in self.behdata) 
+        return n_responses >= max_responses
