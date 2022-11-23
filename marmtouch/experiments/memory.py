@@ -176,6 +176,7 @@ class Memory(Experiment, DelayMixin):
                     else:
                         info["tapped"] = "outside"
                         if self.options.get('ignore_outside',False):
+                            info["touch"] = 0
                             continue
 
                     if self.options.get("ignore_incorrect", False):
