@@ -13,6 +13,8 @@ import marmtouch.util as util
 from marmtouch import __version__
 from marmtouch.experiments.mixins.artist import ArtistMixin
 from marmtouch.experiments.mixins.events import EventsMixin
+from marmtouch.experiments.util.pseudorandomize_conditions import \
+    pseudorandomize_conditions
 from marmtouch.util.svg2img import svg2img
 
 
@@ -286,7 +288,8 @@ class Experiment(ArtistMixin, EventsMixin):
         self.n_retries = Counter()
         if method == "random":
             weights = block_info.get("weights")
-            self.condition_list = random.choices(conditions, weights=weights, k=length)
+            max_reps = block_info.get("max_reps")
+            self.condition_list = pseudorandomize_conditions(conditions, weights, length, max_reps)
         elif method == "incremental":
             condition_list = cycle(conditions)
             self.condition_list = [next(condition_list) for _ in range(length)]

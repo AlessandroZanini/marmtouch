@@ -1,6 +1,4 @@
-import random
 import time
-from collections import Counter
 
 from marmtouch.experiments.base import Experiment
 from marmtouch.experiments.trialrecord import TrialRecord
@@ -28,10 +26,9 @@ class Basic(Experiment):
         self.screen.fill(self.background)
         self.draw_stimulus(**stimuli["target"])
 
-        distractors = stimuli.get("distractors")
-        if distractors is not None:
-            for distractor in distractors:
-                self.draw_stimulus(**distractor)
+        distractors = stimuli.get("distractors", [])
+        for distractor in distractors:
+            self.draw_stimulus(**distractor)
         self.flip()
 
         start_time = current_time = time.time()
@@ -55,7 +52,8 @@ class Basic(Experiment):
                     }
                     if timing["correct_duration"]:
                         self.screen.fill(self.background)
-                        self.draw_stimulus(**stimuli["correct"])
+                        if stimuli['correct'] is not None:
+                            self.draw_stimulus(**stimuli["correct"])
                         self.flip()
                         self.good_monkey()
                         start_time = time.time()
@@ -69,6 +67,14 @@ class Basic(Experiment):
                     self.flip()
                     break
                 else:
+                    for distractor in distractors:
+                        if self.was_tapped(
+                            distractor["loc"], tap, distractor["window"],
+                        ):
+                            break
+                    else:
+                        if self.options.get("ignore_outside", False):
+                            continue
                     info = {
                         "touch": 2,
                         "RT": current_time - start_time,
@@ -81,7 +87,8 @@ class Basic(Experiment):
                         self.good_monkey()
                     elif timing["incorrect_duration"]:
                         self.screen.fill(self.background)
-                        self.draw_stimulus(**stimuli["incorrect"])
+                        if stimuli['incorrect'] is not None:
+                            self.draw_stimulus(**stimuli["incorrect"])
                         self.flip()
                         start_time = time.time()
                         while (time.time() - start_time) < timing["incorrect_duration"]:
@@ -118,12 +125,15 @@ class Basic(Experiment):
             if condition is None:
                 break
 
+            condition_items = self.conditions[condition]
             stimuli = {
-                stimulus: self.get_item(self.conditions[condition][stimulus])
+                stimulus: self.get_item(condition_items.get(stimulus)) if stimulus in condition_items else None
                 for stimulus in ["target", "correct", "incorrect"]
             }
+            if stimuli['target'] is None:
+                raise ValueError(f"Target stimulus not defined for condition {condition}")
 
-            distractors = self.conditions[condition].get("distractors")
+            distractors = condition_items.get("distractors")
             if distractors is not None:
                 stimuli["distractors"] = [
                     self.get_item(distractor) for distractor in distractors
