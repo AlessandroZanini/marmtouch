@@ -104,7 +104,7 @@ class Memory(Experiment, DelayMixin):
             if not self.running:
                 return
             if tap is not None:
-                if self.was_tapped(
+                if "window" in stimuli["cue"] and self.was_tapped(
                     stimuli["cue"]["loc"], tap, stimuli["cue"]["window"]
                 ):
                     info = {
@@ -191,6 +191,8 @@ class Memory(Experiment, DelayMixin):
                         while (time.time() - start_time) < timing["incorrect_duration"]:
                             self.parse_events()
                     break
+        if not self.running:
+            return
         # else: #no response?
         self.screen.fill(self.background)
         self.flip()
@@ -309,6 +311,7 @@ class Memory(Experiment, DelayMixin):
             # wipe screen
             self.screen.fill(self.background)
             self.flip()
+            pygame.mixer.stop()
 
             # end of trial cleanup
             if self.camera is not None:

@@ -165,7 +165,7 @@ class Launcher:
         data_dir = Path("/home/pi/Touchscreen", session)
         if task.name in ["basic", "random", "reversal"]:
             from marmtouch.experiments.basic import Basic as Experiment
-        elif task.name in ["memory", "cued", "vmcl"]:
+        elif task.name in ["memory", "cued", "vmcl", "auditory_discrimination"]:
             from marmtouch.experiments.memory import Memory as Experiment
         elif task.name in ["match", "nonmatch"]:
             from marmtouch.experiments.dms import DMS as Experiment

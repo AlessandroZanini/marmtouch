@@ -66,6 +66,7 @@ class Experiment(ArtistMixin, EventsMixin):
     sep = ","
     info_background = (0, 0, 0)
     _image_cache_max_len = 20
+    _audio_tracks_cache_max_len = 20
     system_config_path = "/home/pi/marmtouch_system_config.yaml"
     start_duration = 1e4
     start_stimulus = dict(
@@ -145,6 +146,7 @@ class Experiment(ArtistMixin, EventsMixin):
         self.start_stimulus = self.options.get("start_stimulus", self.start_stimulus)
         self.start_duration = self.options.get("start_duration", self.start_duration)
         self.images = {}
+        self.audio_tracks = {}
 
         self.trial = None
         blocks = params.get("blocks")
@@ -229,6 +231,7 @@ class Experiment(ArtistMixin, EventsMixin):
             yaml.dump(self.events, f)
         self.logger.info(f"Event data dumped. {len(self.events)} total records.")
         self.running = False
+        pygame.mixer.quit()
         pygame.quit()
         self.logger.info("Pygame quit safely.")
 
@@ -416,6 +419,7 @@ class Experiment(ArtistMixin, EventsMixin):
         session_txt = self.session_font.render(session_name, True, text_colour)
         self.session_txt = pygame.transform.rotate(session_txt, 90)
         self.session_txt_rect = self.session_txt.get_rect(bottomleft=(0, 800 - 30))
+        pygame.mixer.init()
 
     def get_image_stimulus(self, path, **params):
         """Get image stimulus
@@ -472,6 +476,33 @@ class Experiment(ArtistMixin, EventsMixin):
         else:
             params["image"] = image
         return params
+    
+    def get_audio_stimulus(self, path, **params):
+        """Get audio stimulus
+
+        Load an audio file
+
+        Parameters
+        ----------
+        path: str
+            Path to audio file
+        params: dict
+            Dictionary of parameters for the stimulus
+
+        Returns
+        -------
+        params: dict
+            Stimulus parameters with audio data in `audio` key
+        """
+        params["type"] = "audio"
+        audio = self.audio_tracks.get(path)
+        if audio is None:
+            self.audio_tracks[path] = params["sound"] = pygame.mixer.Sound(path)
+            if len(self.audio_tracks) > self._audio_tracks_cache_max_len:
+                self.audio_tracks.pop(list(self.audio_tracks.keys())[0])
+        else:
+            params["sound"] = audio
+        return params
 
     def get_item(self, item_key=None, **params):
         """Get item parameters
@@ -500,6 +531,8 @@ class Experiment(ArtistMixin, EventsMixin):
             params = self.get_image_stimulus(**params)
         elif params["type"] == "svg":
             params = self.get_svg_stimulus(**params)
+        elif params["type"] == "audio":
+            params = self.get_audio_stimulus(**params)
         return params
 
     def flip(self):

@@ -83,6 +83,11 @@ class ArtistMixin:
             if rotation:
                 img = pygame.transform.rotate(img, rotation)
             self.screen.blit(img, img_rect)
+        elif params["type"] == "audio":
+            params["sound"].play(
+                loops=params.get("loop", 1)-1,
+                maxtime=params.get("maxtime", 0),
+            )
         if self.debug_mode and "window" in params:
             w, h = params["window"]
             window = pygame.Rect(0, 0, w, h)
