@@ -15,6 +15,8 @@ from marmtouch.experiments.mixins.artist import ArtistMixin
 from marmtouch.experiments.mixins.events import EventsMixin
 from marmtouch.experiments.util.pseudorandomize_conditions import \
     pseudorandomize_conditions
+from marmtouch.experiments.util.generate_auditory_stimuli import \
+    generate_sine_wave_snd
 from marmtouch.util.svg2img import svg2img
 
 
@@ -504,6 +506,22 @@ class Experiment(ArtistMixin, EventsMixin):
             params["sound"] = audio
         return params
 
+    def get_pure_tone_stimulus(self, **params):
+        """Get pure tone stimulus
+
+        Load parameters for a pure tone stimulus and generate it
+
+        Parameters
+        ----------
+        
+        """
+        if "freq" not in params:
+            raise ValueError("Must provide frequency for pure tone stimuli")
+        params["maxtime"] = params.get("maxtime", 5)
+        params["sound"] = generate_sine_wave_snd(params["freq"], params["maxtime"])
+        return params
+
+    
     def get_item(self, item_key=None, **params):
         """Get item parameters
 
@@ -533,6 +551,8 @@ class Experiment(ArtistMixin, EventsMixin):
             params = self.get_svg_stimulus(**params)
         elif params["type"] == "audio":
             params = self.get_audio_stimulus(**params)
+        elif params["type"] == "pure_tone":
+            params = self.get_pure_tone_stimulus(**params)
         return params
 
     def flip(self):

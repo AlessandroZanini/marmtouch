@@ -83,7 +83,7 @@ class ArtistMixin:
             if rotation:
                 img = pygame.transform.rotate(img, rotation)
             self.screen.blit(img, img_rect)
-        elif params["type"] == "audio":
+        elif params["type"] in ["audio", "pure_tone"]:
             params["sound"].play(
                 loops=params.get("loop", 1)-1,
                 maxtime=params.get("maxtime", 0),
