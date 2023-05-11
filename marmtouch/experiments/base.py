@@ -4,6 +4,7 @@ import warnings
 from collections import ChainMap, Counter
 from itertools import cycle
 from pathlib import Path
+import re
 
 import pygame
 import RPi.GPIO as GPIO
@@ -206,10 +207,23 @@ class Experiment(ArtistMixin, EventsMixin):
         )
         if duration is None:
             raise ValueError(f"{name} not in timing specification")
+        return self._compute_duration(duration)
+
+    def _compute_duration(self, duration):
         if isinstance(duration, (int, float)):
             return duration
+        elif isinstance(duration, str):
+            rand_template = r"rand\((?P<start>[\d.-]+),\s*(?P<end>[\d.-]+)\)"
+            match = re.match(rand_template, duration)
+            if match:
+                start = float(match.group("start"))
+                end = float(match.group("end"))
+                return random.uniform(start, end)
+            else:
+                raise ValueError(f"Invalid duration string: {duration}")
         else:
             return random.choice(duration)
+
 
     def graceful_exit(self):
         """Gracefully exit experiment
@@ -605,7 +619,19 @@ class Experiment(ArtistMixin, EventsMixin):
                         "x": tap[0],
                         "y": tap[1],
                     }
-                    return info
+                    break
+        else:
+            return None
+
+        self.screen.fill(self.background)
+        self.flip()
+
+        info["start_stimulus_delay"] = self._compute_duration(self.options.get("start_stimulus_delay", 0))
+
+        start_time = time.time()
+        while self.running and (time.time()-start_time) < info["start_stimulus_delay"]:
+            self.parse_events()
+        return info
 
     def update_info_data(self):
         key = tuple(self.trial.data[key] for key in self.info_breakdown_keys.values())

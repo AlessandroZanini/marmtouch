@@ -14,6 +14,9 @@ class Basic(Experiment):
         "target_duration",
         "correct_duration",
         "incorrect_duration",
+        "sync_onset",
+        "start_stimulus_onset",
+        "start_stimulus_offset"
     )
     name = "Basic"
     info_background = (0, 0, 0)
@@ -150,7 +153,8 @@ class Basic(Experiment):
                     continue
                 if not self.running:
                     return
-            self.TTLout["sync"].pulse(0.1)
+            SYNC_PULSE_DURATION = 0.1
+            self.TTLout["sync"].pulse(SYNC_PULSE_DURATION)
             if self.camera is not None:
                 self.camera.start_recording(
                     (self.data_dir / f"{trial}.h264").as_posix()
@@ -165,8 +169,16 @@ class Basic(Experiment):
                 condition=condition,
                 target_touch=0,
                 target_RT=0,
+                sync_onset=-SYNC_PULSE_DURATION,
                 **timing,
             )
+            if self.options.get("push_to_start", False):
+                start_stimulus_offset=-(SYNC_PULSE_DURATION+start_result["start_stimulus_delay"])
+                self.trial.data.update(dict(
+                    start_stimulus_offset=start_stimulus_offset,
+                    start_stimulus_onset=start_stimulus_offset-start_result["RT"],
+                ))
+
 
             # run trial
             target_result = self._show_target(stimuli, timing)

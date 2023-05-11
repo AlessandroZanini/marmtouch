@@ -27,6 +27,9 @@ class DMS(Experiment, DelayMixin):
         "incorrect_duration",
         "match_img",
         "nonmatch_img",
+        "sync_onset",
+        "start_stimulus_onset",
+        "start_stimulus_offset"
     )
     name = "DMS"
     info_background = (0, 0, 0)
@@ -184,7 +187,8 @@ class DMS(Experiment, DelayMixin):
                 start_result = self._start_trial()
                 if start_result is None:
                     continue
-            self.TTLout["sync"].pulse(0.1)
+            SYNC_PULSE_DURATION = 0.1
+            self.TTLout["sync"].pulse(SYNC_PULSE_DURATION)
             if self.camera is not None:
                 self.camera.start_recording(
                     (self.data_dir / f"{trial}.h264").as_posix()
@@ -203,8 +207,15 @@ class DMS(Experiment, DelayMixin):
                 test_RT=0,
                 match_img=match_img,
                 nonmatch_img=nonmatch_img,
+                sync_onset=-SYNC_PULSE_DURATION,
                 **timing,
             )
+            if self.options.get("push_to_start", False):
+                start_stimulus_offset=-(SYNC_PULSE_DURATION+start_result["start_stimulus_delay"])
+                self.trial.data.update(dict(
+                    start_stimulus_offset=start_stimulus_offset,
+                    start_stimulus_onset=start_stimulus_offset-start_result["RT"],
+                ))
 
             # run trial
             sample_result = self._show_sample(stimuli, timing)
