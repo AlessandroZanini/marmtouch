@@ -1,3 +1,4 @@
+import math
 import time
 import tkinter as tk
 from functools import partial
@@ -13,90 +14,108 @@ button_params = dict(
     height=3, width=20, relief=tk.FLAT, bg="gray99", fg="purple3", font="Dosis"
 )
 
+class PaginatedFrame(tk.Frame):
+    """A pure Tkinter frame with pagination functionality.
 
-class VerticalScrolledFrame(tk.Frame):
-    """A pure Tkinter scrollable frame that actually works!
-
-    * Use the 'interior' attribute to place widgets inside the scrollable frame
+    * Use the 'interior' attribute to place widgets inside the frame
     * Construct and pack/place/grid normally
-    * This frame only allows vertical scrolling
     """
 
-    def __init__(self, parent, *args, **kw):
-        tk.Frame.__init__(self, parent, *args, **kw)
+    def __init__(self, parent, page_size, *args, **kwargs):
+        title = kwargs.pop("title", "Title")
 
-        # create a canvas object and a vertical scrollbar for scrolling it
-        vscrollbar = tk.Scrollbar(self, orient=tk.VERTICAL)
-        vscrollbar.pack(fill=tk.Y, side=tk.RIGHT, expand=tk.FALSE)
-        canvas = tk.Canvas(
-            self, bd=0, highlightthickness=0, yscrollcommand=vscrollbar.set
-        )
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE)
-        vscrollbar.config(command=canvas.yview)
+        tk.Frame.__init__(self, parent, *args, **kwargs)
+        self.parent = parent
+        self.page_size = page_size
+        self.current_page = 0
+        self.child_widgets = []
 
-        # reset the view
-        canvas.xview_moveto(0)
-        canvas.yview_moveto(0)
+        # Create a frame for the interior widgets
+        self.title_label = tk.Label(self, 
+            text=title,
+            bg="purple3",
+            fg="gray99",
+            font="Helvetica 16 bold",
+            height=3)
+        self.title_label.pack(side=tk.TOP, fill=tk.X)
 
-        # create a frame inside the canvas which will be scrolled with it
-        self.interior = interior = tk.Frame(canvas)
-        interior_id = canvas.create_window(0, 0, window=interior, anchor=tk.NW)
+        self.interior = tk.Frame(self)
+        self.buttons = tk.Frame(self)
+        self.interior.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.TRUE)
+        self.buttons.pack(side=tk.BOTTOM, fill=tk.X)
 
-        # track changes to the canvas and frame width and sync them,
-        # also updating the scrollbar
-        def _configure_interior(event):
-            # update the scrollbars to match the size of the inner frame
-            size = (interior.winfo_reqwidth(), interior.winfo_reqheight())
-            canvas.config(scrollregion="0 0 %s %s" % size)
-            if interior.winfo_reqwidth() != canvas.winfo_width():
-                # update the canvas's width to fit the inner frame
-                canvas.config(width=interior.winfo_reqwidth())
+        self.prev_button = tk.Button(self.buttons, text="<<", command=self.prev_page, height=4)
+        self.prev_button.pack(side=tk.LEFT, fill=tk.X, expand=tk.TRUE)
+        self.next_button = tk.Button(self.buttons, text=">>", command=self.next_page, height=4)
+        self.next_button.pack(side=tk.RIGHT, fill=tk.X, expand=tk.TRUE)
+        self.page_label = tk.Label(self.buttons, text="Page 1/1", height=4)
+        self.page_label.pack(side=tk.RIGHT, fill=tk.X, expand=tk.TRUE)
 
-        interior.bind("<Configure>", _configure_interior)
+    @property    
+    def num_pages(self):
+        return math.ceil(len(self.child_widgets) / self.page_size)
+    
+    def draw(self):
+        self.page_label.config(text=f"Page {self.current_page + 1}/{self.num_pages}")
+        self.prev_button.config(state=tk.NORMAL)
+        self.next_button.config(state=tk.NORMAL)
+        if self.current_page == 0:
+            self.prev_button.config(state=tk.DISABLED)
+        if self.current_page == self.num_pages - 1:
+            self.next_button.config(state=tk.DISABLED)
+        
+        for childid, child in enumerate(self.child_widgets):
+            if childid // self.page_size == self.current_page:
+                child.pack(padx=10, pady=5, side=tk.TOP)
+            else:
+                child.pack_forget()
+    
+    def prev_page(self):
+        self.current_page -= 1
+        self.draw()
+    
+    def next_page(self):
+        self.current_page += 1
+        self.draw()
 
-        def _configure_canvas(event):
-            if interior.winfo_reqwidth() != canvas.winfo_width():
-                # update the inner frame's width to fill the canvas
-                canvas.itemconfigure(interior_id, width=canvas.winfo_width())
-
-        canvas.bind("<Configure>", _configure_canvas)
-
+    def add_widget(self, widget):
+        self.child_widgets.append(widget)
+    
+    def reset(self):
+        self.current_page = 0
+        for child in self.child_widgets:
+            child.destroy()
+        self.child_widgets = []
+        self.draw()
+    
+    def set_title(self, title):
+        self.title_label.config(text=title)
 
 class Launcher:
     def __init__(self, config_directory, debug=False):
         self.debug = debug
         self._init()
         self.config_directory = Path(config_directory)
-        self.buttons = []
-        self.labels = []
         self.job_selector()
         self.root.mainloop()
-
-    def _reset_gui(self):
-        for button in self.buttons:
-            button.destroy()
-        for label in self.labels:
-            label.destroy()
-        self.labels = []
-        self.buttons = []
 
     def _add_button(self, text, command):
         button = tk.Button(
             self.scframe.interior, text=text, command=command, **button_params
         )
-        button.pack(padx=10, pady=5, side=tk.TOP)
-        self.buttons.append(button)
+        self.scframe.add_widget(button)
 
     def _init(self):
         self.root = tk.Tk()
         self.root.title("marmtouch launcher")
         self.root.geometry("300x700+0+0")
         self.root.configure(background="gray99")
-        self.scframe = VerticalScrolledFrame(self.root)
+        self.scframe = PaginatedFrame(self.root, 7, title="marmtouch launcher")
         self.scframe.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE)
 
     def job_selector(self):
-        self._reset_gui()
+        self.scframe.reset()
+        self.scframe.set_title("marmtouch launcher")
         jobs = [
             dict(text="Transfer Files", command=bulk_transfer_files),
             dict(text="Camera preview", command=self.preview_camera),
@@ -111,8 +130,8 @@ class Launcher:
         addresses = get_network_interfaces()
         addresses = "\n".join([f"{k}: {v}" for k, v in addresses.items()])
         addresses_label = tk.Label(self.scframe.interior, text=addresses, justify='left')
-        addresses_label.pack(padx=10, pady=5, side=tk.TOP)
-        self.labels.append(addresses_label)
+        self.scframe.add_widget(addresses_label)
+        self.scframe.draw()
 
     def test_GPIO(self, port):
         from marmtouch.util import TTL
@@ -120,7 +139,8 @@ class Launcher:
         TTL(port).pulse()
 
     def test_GPIO_selector(self):
-        self._reset_gui()
+        self.scframe.reset()
+        self.scframe.set_title("TEST GPIO")
         jobs = [
             dict(text="reward", command=partial(self.test_GPIO, port=11)),
             dict(text="sync", command=partial(self.test_GPIO, port=16)),
@@ -128,6 +148,7 @@ class Launcher:
         ]
         for job in jobs:
             self._add_button(**job)
+        self.scframe.draw()
 
     def preview_camera(self):
         from picamera import PiCamera
@@ -138,7 +159,8 @@ class Launcher:
         camera.stop_preview()
 
     def task_selector(self):
-        self._reset_gui()
+        self.scframe.reset()
+        self.scframe.set_title("Select Task")
         task_list = [
             f
             for f in self.config_directory.iterdir()
@@ -149,15 +171,18 @@ class Launcher:
                 text=task.name, command=partial(self.config_selector, task)
             )
         self._add_button(text="<<", command=self.job_selector)
+        self.scframe.draw()
 
     def config_selector(self, task):
-        self._reset_gui()
+        self.scframe.reset()
+        self.scframe.set_title(f"{task.name}: Select Config")
         config_list = list(task.glob("*.yaml"))
         for config in config_list:
             self._add_button(
                 text=config.stem, command=partial(self.run, task=task, config=config)
             )
         self._add_button(text="<<", command=self.task_selector)
+        self.scframe.draw()
 
     def run(self, task, config):
         params = util.read_yaml(config)
