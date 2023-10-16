@@ -21,7 +21,8 @@
       "title": "Method",
       "enum": [
         "incremental",
-        "random"
+        "random",
+        "fixed_random"
       ],
       "description": "Method by which to order trials"
     },

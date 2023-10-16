@@ -15,7 +15,7 @@ from marmtouch import __version__
 from marmtouch.experiments.mixins.artist import ArtistMixin
 from marmtouch.experiments.mixins.events import EventsMixin
 from marmtouch.experiments.util.pseudorandomize_conditions import \
-    pseudorandomize_conditions
+    pseudorandomize_conditions, pseudorandomize_conditions_fixed_number
 from marmtouch.experiments.util.generate_auditory_stimuli import \
     generate_sine_wave_snd
 from marmtouch.util.svg2img import svg2img
@@ -114,6 +114,7 @@ class Experiment(ArtistMixin, EventsMixin):
         self.behdata_path = self.data_dir / "behaviour.csv"
         self.logger_path = self.data_dir / "marmtouch.log"
         self.events_path = self.data_dir / "events.yaml"
+        self.temp_events_path = self.data_dir / "events.tmp.yaml"
         self.params_path = self.data_dir / "params.yaml"
 
         with open(self.params_path.as_posix(), "w") as f:
@@ -246,6 +247,11 @@ class Experiment(ArtistMixin, EventsMixin):
         with open(self.events_path.as_posix(), "w") as f:
             yaml.dump(self.events, f)
         self.logger.info(f"Event data dumped. {len(self.events)} total records.")
+        if self.events_path.stat().st_size == 0:
+            warnings.warn("Event data did not save to disk. Keeping temp file.")
+        else:
+            self.logger.info("Event data saved properly.  Removing temp file.")
+            self.temp_events_path.unlink()
         self.running = False
         pygame.mixer.quit()
         pygame.quit()
@@ -305,15 +311,17 @@ class Experiment(ArtistMixin, EventsMixin):
         self.retry_method = block_info.get("retry_method")
         self.max_retries = block_info.get("max_retries")
         self.n_retries = Counter()
+        weights = block_info.get("weights")
         if method == "random":
-            weights = block_info.get("weights")
             max_reps = block_info.get("max_reps")
             self.condition_list = pseudorandomize_conditions(conditions, weights, length, max_reps)
         elif method == "incremental":
             condition_list = cycle(conditions)
             self.condition_list = [next(condition_list) for _ in range(length)]
+        elif method == "fixed_random":
+            self.condition_list = pseudorandomize_conditions_fixed_number(conditions, weights, length)
         else:
-            raise ValueError("'method' must be one of ['random','incremental']")
+            raise ValueError("'method' must be one of ['random', 'fixed_random', 'incremental']")
 
     def get_condition(self):
         """Get the condition for the next trial

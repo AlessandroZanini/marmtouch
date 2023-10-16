@@ -1,7 +1,7 @@
 import time
 
 import pygame
-
+import yaml
 
 class EventsMixin:
     def parse_events(self):
@@ -40,6 +40,8 @@ class EventsMixin:
                     )
                     exit_ = True
         self.events.extend(event_stack)
+        with open(self.temp_events_path, 'a') as file
+            yaml.safe_dump(event_stack, file)
         if exit_:
             self.graceful_exit()
         return event_stack
