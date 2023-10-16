@@ -307,11 +307,13 @@ class Experiment(ArtistMixin, EventsMixin):
         self.active_block = block_info
         method = block_info.get("method", "random")
         conditions = block_info["conditions"]
-        length = block_info["length"]
+        weights = block_info.get("weights", [1]*len(conditions))
+        length = block_info.get('length', 'auto')
+        if length == 'auto':
+            length = sum(weights)
         self.retry_method = block_info.get("retry_method")
         self.max_retries = block_info.get("max_retries")
         self.n_retries = Counter()
-        weights = block_info.get("weights")
         if method == "random":
             max_reps = block_info.get("max_reps")
             self.condition_list = pseudorandomize_conditions(conditions, weights, length, max_reps)

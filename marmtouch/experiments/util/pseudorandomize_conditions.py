@@ -1,5 +1,6 @@
 import random
 from itertools import groupby
+from math import ceil
 
 
 def no_reps_over_max(condition_list, max_reps):
@@ -28,7 +29,7 @@ def pseudorandomize_conditions_fixed_number(conditions, weights, length):
     """
     weighted_conditions = []
     for condition, weight in zip(conditions, weights):
-    weighted_conditions.extend([condition]*weight)
+        weighted_conditions.extend([condition]*weight)
     n_chunks = ceil(length / len(weighted_conditions))
     condition_list = n_chunks * weighted_conditions
     random.shuffle(condition_list)

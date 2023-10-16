@@ -40,9 +40,9 @@
       "description": "If not null, use this method to retry trials that were not completed correctly"
     },
     "length": {
-      "type": "integer",
+      "type": ["integer", "string"],
       "title": "Block Length",
-      "description": "Number of trials in the block (not including retried trials)"
+      "description": "Number of trials in the block (not including retried trials). If auto, length=sum(weights)"
     },
     "max_retries": {
       "type": [
