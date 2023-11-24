@@ -7,3 +7,4 @@ test
 .vscode
 releases
 build
+dev/env

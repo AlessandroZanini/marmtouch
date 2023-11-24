@@ -1,6 +1,7 @@
 import shutil
 import subprocess
 import time
+import os
 from pathlib import Path
 
 import click
@@ -97,7 +98,7 @@ def _transfer_files(videos_directory, server_path, verbose=True):
         videos_directory.rmdir()
 
 
-default_source = "/home/pi/Touchscreen"
+default_source = Path(os.environ.get("MARMTOUCH_DATA_DIRECTORY", "/home/pi/Touchscreen"))
 default_destination = "/mnt/Data/Touchscreen/Data"
 
 

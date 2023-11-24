@@ -1,10 +1,9 @@
-import time
-from pathlib import Path
+import os
 
 import click
 
-import marmtouch.util as util
-
+from marmtouch.scripts.util import get_task
+from marmtouch.util import get_data_directory, read_yaml
 
 @click.command()
 @click.argument("task", required=True)
@@ -37,29 +36,21 @@ import marmtouch.util as util
     default=True,
     help='Enables fullscreen mode.  Default, enabled',
 )
-def run(task, params_path, preview, camera, debug, directory, touch_exit, fullscreen):
+@click.pass_context
+def run(ctx, task, params_path, preview, camera, debug, directory, touch_exit, fullscreen):
     """Uses marmtouch to run a task using the TASK experiment class and config at PARAMS_PATH."""
-    if task == "basic":
-        from marmtouch.experiments.basic import Basic as Task
-    elif task == "memory":
-        from marmtouch.experiments.memory import Memory as Task
-    elif task == "dms":
-        from marmtouch.experiments.dms import DMS as Task
-    else:
-        raise ValueError("Unknown task: {}".format(task))
-    params = util.read_yaml(params_path)
-    session = time.strftime("%Y-%m-%d_%H-%M-%S")
+    Task = get_task(task)
+    params = read_yaml(params_path)
     if directory is None:
-        data_dir = Path("/home/pi/Touchscreen", session)
-    else:
-        data_dir = Path(directory, session)
+        directory = get_data_directory()
     experiment = Task(
-        data_dir,
+        directory,
         params,
         camera_preview=preview,
         camera=camera,
         debug_mode=debug,
         touch_exit=touch_exit,
         fullscreen=fullscreen,
+        loglevel=ctx.obj["loglevel"],
     )
     experiment.run_safe()

@@ -2,6 +2,7 @@ import time
 
 from marmtouch.experiments.base import Experiment
 from marmtouch.experiments.trialrecord import TrialRecord
+from marmtouch.experiments.util.events import get_first_tap, was_tapped
 
 
 class Basic(Experiment):
@@ -16,7 +17,7 @@ class Basic(Experiment):
         "incorrect_duration",
         "sync_onset",
         "start_stimulus_onset",
-        "start_stimulus_offset"
+        "start_stimulus_offset",
     )
     name = "Basic"
     info_background = (0, 0, 0)
@@ -34,34 +35,33 @@ class Basic(Experiment):
             self.draw_stimulus(**distractor)
         self.flip()
 
-        start_time = current_time = time.time()
         info = {"touch": 0, "RT": 0}
-        while (current_time - start_time) < timing["target_duration"]:
-            current_time = time.time()
-            tap = self.get_first_tap(self.parse_events())
+        self.clock.wait(timing["target_duration"])
+        while self.clock.waiting():
+            tap = get_first_tap(self.event_manager.parse_events())
             if not self.running:
                 return
             if tap is None:
                 continue
             else:
-                if self.was_tapped(
+                if was_tapped(
                     stimuli["target"]["loc"], tap, stimuli["target"]["window"]
                 ):
                     info = {
                         "touch": 1 if info["touch"] == 0 else 3,
-                        "RT": current_time - start_time,
+                        "RT": self.clock.elapsed_time,
                         "x": tap[0],
                         "y": tap[1],
                     }
                     if timing["correct_duration"]:
                         self.screen.fill(self.background)
-                        if stimuli['correct'] is not None:
+                        if stimuli["correct"] is not None:
                             self.draw_stimulus(**stimuli["correct"])
                         self.flip()
                         self.good_monkey()
-                        start_time = time.time()
-                        while (time.time() - start_time) < timing["correct_duration"]:
-                            self.parse_events()
+                        self.clock.wait(timing["correct_duration"])
+                        while self.clock.waiting():
+                            self.event_manager.parse_events()
                             if not self.running:
                                 return
                     else:
@@ -71,8 +71,10 @@ class Basic(Experiment):
                     break
                 else:
                     for distractor in distractors:
-                        if self.was_tapped(
-                            distractor["loc"], tap, distractor["window"],
+                        if was_tapped(
+                            distractor["loc"],
+                            tap,
+                            distractor["window"],
                         ):
                             break
                     else:
@@ -80,7 +82,7 @@ class Basic(Experiment):
                             continue
                     info = {
                         "touch": 2,
-                        "RT": current_time - start_time,
+                        "RT": self.clock.elapsed_time,
                         "x": tap[0],
                         "y": tap[1],
                     }
@@ -90,12 +92,12 @@ class Basic(Experiment):
                         self.good_monkey()
                     elif timing["incorrect_duration"]:
                         self.screen.fill(self.background)
-                        if stimuli['incorrect'] is not None:
+                        if stimuli["incorrect"] is not None:
                             self.draw_stimulus(**stimuli["incorrect"])
                         self.flip()
-                        start_time = time.time()
-                        while (time.time() - start_time) < timing["incorrect_duration"]:
-                            self.parse_events()
+                        self.clock.wait(timing["incorrect_duration"])
+                        while self.clock.waiting():
+                            self.event_manager.parse_events()
                             if not self.running:
                                 return
                     self.screen.fill(self.background)
@@ -104,6 +106,33 @@ class Basic(Experiment):
         if not self.running:
             return
         return info
+
+    def get_stimuli(self, condition):
+        condition_items = self.conditions[condition]
+        stimuli = {
+            stimulus: self.get_item(condition_items.get(stimulus))
+            if stimulus in condition_items
+            else None
+            for stimulus in ["target", "correct", "incorrect"]
+        }
+        if stimuli["target"] is None:
+            raise ValueError(
+                f"Target stimulus not defined for condition {condition}"
+            )
+
+        distractors = condition_items.get("distractors")
+        if distractors is not None:
+            stimuli["distractors"] = [
+                self.get_item(distractor) for distractor in distractors
+            ]
+        return stimuli
+
+    def get_timing(self, condition):
+        timing = {
+            f"{event}_duration": self.get_duration(event)
+            for event in ["target", "correct", "incorrect"]
+        }
+        return timing
 
     def run(self):
         if self.options.get("reward_incorrect", False) and self.options.get(
@@ -115,8 +144,6 @@ class Basic(Experiment):
         self.initialize()
         trial = 0
         self.running = True
-        self.start_time = time.time()
-
         while self.running:
             self.update_info(trial)
             self._run_intertrial_interval(3)
@@ -128,24 +155,8 @@ class Basic(Experiment):
             if condition is None:
                 break
 
-            condition_items = self.conditions[condition]
-            stimuli = {
-                stimulus: self.get_item(condition_items.get(stimulus)) if stimulus in condition_items else None
-                for stimulus in ["target", "correct", "incorrect"]
-            }
-            if stimuli['target'] is None:
-                raise ValueError(f"Target stimulus not defined for condition {condition}")
-
-            distractors = condition_items.get("distractors")
-            if distractors is not None:
-                stimuli["distractors"] = [
-                    self.get_item(distractor) for distractor in distractors
-                ]
-
-            timing = {
-                f"{event}_duration": self.get_duration(event)
-                for event in ["target", "correct", "incorrect"]
-            }
+            stimuli = self.get_stimuli(condition)
+            timing = self.get_timing(condition)
 
             if self.options.get("push_to_start", False):
                 start_result = self._start_trial()
@@ -161,7 +172,7 @@ class Basic(Experiment):
                 )
 
             # initialize trial parameters
-            trial_start_time = time.time() - self.start_time
+            trial_start_time = self.clock.get_time()
             self.trial = TrialRecord(
                 self.keys,
                 trial=trial,
@@ -173,12 +184,15 @@ class Basic(Experiment):
                 **timing,
             )
             if self.options.get("push_to_start", False):
-                start_stimulus_offset=-(SYNC_PULSE_DURATION+start_result["start_stimulus_delay"])
-                self.trial.data.update(dict(
-                    start_stimulus_offset=start_stimulus_offset,
-                    start_stimulus_onset=start_stimulus_offset-start_result["RT"],
-                ))
-
+                start_stimulus_offset = -(
+                    SYNC_PULSE_DURATION + start_result["start_stimulus_delay"]
+                )
+                self.trial.data.update(
+                    dict(
+                        start_stimulus_offset=start_stimulus_offset,
+                        start_stimulus_onset=start_stimulus_offset - start_result["RT"],
+                    )
+                )
 
             # run trial
             target_result = self._show_target(stimuli, timing)
@@ -205,3 +219,18 @@ class Basic(Experiment):
                 break
             trial += 1
             self.update_condition_list(outcome)
+
+
+    def _test_trial(self, test):
+        self._setup_test_trial(test)
+        self.update_info(test['trial'])
+        stimuli = self.get_stimuli(test['condition'])
+        timing = self.get_timing(test['condition'])
+
+        # run trial
+        target_result = self._show_target(stimuli, timing)
+        if target_result is None:
+            return
+        # wipe screen
+        self.screen.fill(self.background)
+        self.flip()

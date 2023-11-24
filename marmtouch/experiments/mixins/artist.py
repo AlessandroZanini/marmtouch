@@ -35,6 +35,7 @@ class ArtistMixin:
         Must manually call pygame.display.update() after drawing all stimuli.
         Use self.screen.fill(self.background) to clear the screen
         """
+        self.logger.debug("Drawing stimulus: {}".format(params))
         if params["type"] == "circle":
             pygame.draw.circle(
                 self.screen, params["color"], params["loc"], params["radius"]
@@ -90,6 +91,6 @@ class ArtistMixin:
             )
         if self.debug_mode and "window" in params:
             w, h = params["window"]
-            window = pygame.Rect(0, 0, w, h)
+            window = pygame.Rect(0, 0, w, h) #.rotate(math.radians(self.rotation))
             window.center = params["loc"]
             pygame.draw.rect(self.screen, pygame.Color("RED"), window, 4)

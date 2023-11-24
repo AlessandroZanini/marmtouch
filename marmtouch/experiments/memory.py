@@ -8,11 +8,12 @@ import pygame
 from marmtouch.experiments.base import Experiment
 from marmtouch.experiments.mixins.task_components.delay import DelayMixin
 from marmtouch.experiments.trialrecord import TrialRecord
+from marmtouch.experiments.util.events import get_first_tap, was_tapped
 
 
 class Memory(Experiment, DelayMixin):
     """A delayed match to location task.
-    
+
     This task is a delayed match to location task. The task is to tap the
     location of a cued stimulus location after a delay.
 
@@ -20,17 +21,17 @@ class Memory(Experiment, DelayMixin):
     --------------
     CUE
         The :item:`cue` stimulus is presented for :time:`cue` seconds.
-        
-        If :opt:`cue_touch_enabled` is True, the subject must touch 
-        cue within :time:`cue` seconds to proceed. Otherwise, touches 
+
+        If :opt:`cue_touch_enabled` is True, the subject must touch
+        cue within :time:`cue` seconds to proceed. Otherwise, touches
         are logged and ignored.
 
     DELAY
         A blank screen is presented for :time:`delay` seconds, if :time:`delay` > 0.
         If :time:`delay` <= 0, this phase is skipped.
-        
+
         If :item:`delay_distractor` is defined, a distractor stimulus is
-        presented at :time:`delay_distractor_onset` seconds after delay 
+        presented at :time:`delay_distractor_onset` seconds after delay
         onset for :time:`delay_distractor_duration` seconds.
         Touches are logged and ignored.
 
@@ -40,7 +41,7 @@ class Memory(Experiment, DelayMixin):
         presented.
 
         If :opt:`ignore_outside` is True, touches outside of the :item:`target`
-        and :item:`distractors` are ignored. Otherwise, touches outside of the 
+        and :item:`distractors` are ignored. Otherwise, touches outside of the
         :item:`target` and :item:`distractors` are treated as incorrect.
 
         If :opt:`ignore_incorrect` is True, touches on :item:`distractors`
@@ -48,7 +49,7 @@ class Memory(Experiment, DelayMixin):
         incorrect response, the incorrect response is logged as outcome=3.
 
         If :opt:`reward_incorrect` is True, touches on :item:`distractors`
-        are rewarded and trial is terminated.  No effect if 
+        are rewarded and trial is terminated.  No effect if
         :opt:`ignore_incorrect` is True.
 
     Options
@@ -57,15 +58,16 @@ class Memory(Experiment, DelayMixin):
         If True, the subject must touch the cue to proceed from cue phase.
     ignore_incorrect: bool, default False
         If True, incorrect responses during the sample phase are ignored.
-        If the correct response is provided after the incorrect response, 
+        If the correct response is provided after the incorrect response,
         it is logged as outcome 3.
     reward_incorrect: bool, default False
         If True, incorrect responses during the sample phase are rewarded.
     ignore_outside: bool, default False
         If True, touches outside of the target and distractors are ignored.
-        Otherwise, touches outside of the target and distractors are treated 
+        Otherwise, touches outside of the target and distractors are treated
         as incorrect.
     """
+
     keys = (
         "trial",
         "trial_start_time",
@@ -84,7 +86,7 @@ class Memory(Experiment, DelayMixin):
         "tapped",
         "sync_onset",
         "start_stimulus_onset",
-        "start_stimulus_offset"
+        "start_stimulus_offset",
     )
     name = "Memory"
     info_background = (0, 0, 0)
@@ -99,20 +101,19 @@ class Memory(Experiment, DelayMixin):
         self.draw_stimulus(**stimuli["cue"])
         self.flip()
 
-        start_time = current_time = time.time()
         info = {"touch": 0, "RT": 0}
-        while (current_time - start_time) < timing["cue_duration"]:
-            current_time = time.time()
-            tap = self.get_first_tap(self.parse_events())
+        self.clock.wait(timing["cue_duration"])
+        while self.clock.waiting():
+            tap = get_first_tap(self.event_manager.parse_events())
             if not self.running:
                 return
             if tap is not None:
-                if "window" in stimuli["cue"] and self.was_tapped(
+                if "window" in stimuli["cue"] and was_tapped(
                     stimuli["cue"]["loc"], tap, stimuli["cue"]["window"]
                 ):
                     info = {
                         "touch": 1,
-                        "RT": current_time - start_time,
+                        "RT": self.clock.elapsed_time,
                         "x": tap[0],
                         "y": tap[1],
                     }
@@ -129,21 +130,20 @@ class Memory(Experiment, DelayMixin):
             self.draw_stimulus(**distractor)
         self.flip()
 
-        start_time = current_time = time.time()
         info = {"touch": 0, "RT": 0}
-        while (current_time - start_time) < timing["sample_duration"]:
-            current_time = time.time()
-            tap = self.get_first_tap(self.parse_events())
+        self.clock.wait(timing["sample_duration"])
+        while self.clock.waiting():
+            tap = get_first_tap(self.event_manager.parse_events())
             if not self.running:
                 return
             if tap is None:
                 continue
             else:
-                if self.was_tapped(
+                if was_tapped(
                     stimuli["target"]["loc"], tap, stimuli["target"]["window"]
                 ):
                     info.update(
-                        {"RT": current_time - start_time, "x": tap[0], "y": tap[1]}
+                        {"RT": self.clock.elapsed_time, "x": tap[0], "y": tap[1]}
                     )
                     if info["touch"] == 0:
                         info["touch"] = 1
@@ -156,29 +156,27 @@ class Memory(Experiment, DelayMixin):
                         self.draw_stimulus(**stimuli["correct"])
                         self.flip()
                         self.good_monkey()
-                        start_time = time.time()
-                        while (time.time() - start_time) < timing["correct_duration"]:
-                            self.parse_events()
+                        self.clock.wait(timing["correct_duration"])
+                        while self.clock.waiting():
+                            self.event_manager.parse_events()
                     else:
                         self.good_monkey()
                     break
                 else:
                     info = {
                         "touch": 2,
-                        "RT": current_time - start_time,
+                        "RT": self.clock.elapsed_time,
                         "x": tap[0],
                         "y": tap[1],
                     }
 
                     for distractor in stimuli["distractors"]:
-                        if self.was_tapped(
-                            distractor["loc"], tap, distractor["window"]
-                        ):
+                        if was_tapped(distractor["loc"], tap, distractor["window"]):
                             info["tapped"] = distractor["name"]
                             break
                     else:
                         info["tapped"] = "outside"
-                        if self.options.get('ignore_outside',False):
+                        if self.options.get("ignore_outside", False):
                             info["touch"] = 0
                             continue
 
@@ -190,9 +188,9 @@ class Memory(Experiment, DelayMixin):
                         self.screen.fill(self.background)
                         self.draw_stimulus(**stimuli["incorrect"])
                         self.flip()
-                        start_time = time.time()
-                        while (time.time() - start_time) < timing["incorrect_duration"]:
-                            self.parse_events()
+                        self.clock.wait(timing["incorrect_duration"])
+                        while self.clock.waiting():
+                            self.event_manager.parse_events()
                     break
         if not self.running:
             return
@@ -201,48 +199,57 @@ class Memory(Experiment, DelayMixin):
         self.flip()
         return info
 
+    def get_stimuli(self, condition):
+        stimuli = {
+            stimulus: self.get_item(self.conditions[condition][stimulus])
+            for stimulus in ["cue", "target", "correct", "incorrect"]
+        }
+        stimuli["distractors"] = [
+            self.get_item(distractor)
+            for distractor in self.conditions[condition]["distractors"]
+        ]
+        if "delay_distractor" in self.conditions[condition]:
+            stimuli["delay_distractor"] = self.get_item(
+                self.conditions[condition]["delay_distractor"]
+            )
+        else:
+            stimuli["delay_distractor"] = None
+        return stimuli
+
+    def get_timing(self, condition):
+        timing = {
+            f"{event}_duration": self.get_duration(event)
+            for event in ["cue", "delay", "sample", "correct", "incorrect"]
+        }
+        if "delay_distractor" in self.conditions[condition]:
+            timing.update(
+                {
+                    event: self.get_duration(event)
+                    for event in [
+                        "delay_distractor_duration",
+                        "delay_distractor_onset",
+                    ]
+                }
+            )
+        return timing
+
     def run(self):
         self.initialize()
         trial = 0
         self.running = True
-        self.start_time = time.time()
         while self.running:
             self.update_info(trial)
             self._run_intertrial_interval()
-            if not self.running: return
+            if not self.running:
+                return
 
             # initialize trial parameters
             condition = self.get_condition()
             if condition is None:
                 break
 
-            stimuli = {
-                stimulus: self.get_item(self.conditions[condition][stimulus])
-                for stimulus in ["cue", "target", "correct", "incorrect"]
-            }
-            stimuli["distractors"] = [
-                self.get_item(distractor)
-                for distractor in self.conditions[condition]["distractors"]
-            ]
-            timing = {
-                f"{event}_duration": self.get_duration(event)
-                for event in ["cue", "delay", "sample", "correct", "incorrect"]
-            }
-            if "delay_distractor" in self.conditions[condition]:
-                stimuli["delay_distractor"] = self.get_item(
-                    self.conditions[condition]["delay_distractor"]
-                )
-                timing.update(
-                    {
-                        event: self.get_duration(event)
-                        for event in [
-                            "delay_distractor_duration",
-                            "delay_distractor_onset",
-                        ]
-                    }
-                )
-            else:
-                stimuli["delay_distractor"] = None
+            stimuli = self.get_stimuli()
+            timing = self.get_timing()
 
             if self.options.get("push_to_start", False):
                 start_result = self._start_trial()
@@ -256,7 +263,7 @@ class Memory(Experiment, DelayMixin):
                 )
 
             # initialize trial parameters
-            trial_start_time = time.time() - self.start_time
+            trial_start_time = self.clock.get_time()
             self.trial = TrialRecord(
                 self.keys,
                 trial=trial,
@@ -271,11 +278,15 @@ class Memory(Experiment, DelayMixin):
                 **timing,
             )
             if self.options.get("push_to_start", False):
-                start_stimulus_offset=-(SYNC_PULSE_DURATION+start_result["start_stimulus_delay"])
-                self.trial.data.update(dict(
-                    start_stimulus_offset=start_stimulus_offset,
-                    start_stimulus_onset=start_stimulus_offset-start_result["RT"],
-                ))
+                start_stimulus_offset = -(
+                    SYNC_PULSE_DURATION + start_result["start_stimulus_delay"]
+                )
+                self.trial.data.update(
+                    dict(
+                        start_stimulus_offset=start_stimulus_offset,
+                        start_stimulus_onset=start_stimulus_offset - start_result["RT"],
+                    )
+                )
 
             # run trial
             cue_result = self._show_cue(stimuli, timing)
@@ -332,3 +343,33 @@ class Memory(Experiment, DelayMixin):
                 break
             trial += 1
             self.update_condition_list(outcome)
+    def _test_trial(self, test):
+        self._setup_test_trial(test)
+        self.update_info(test['trial'])
+        stimuli = self.get_stimuli(test['condition'])
+        timing = self.get_timing(test['condition'])
+        # run trial
+        cue_result = self._show_cue(stimuli, timing)
+        if cue_result is None:
+            return
+        elif cue_result["touch"] == 0 and self.options.get(
+            "cue_touch_enabled", False
+        ):
+            return
+        else:
+            if timing["delay_duration"] > 0:
+                delay_result = self._run_delay(stimuli, timing)
+            else:
+                delay_result = {"touch": 0}
+            if delay_result is None:
+                return
+            elif delay_result.get("touch", 0) >= 0:  # no matter what
+                sample_result = self._show_sample(
+                    stimuli, timing, show_cue=timing["delay_duration"] < 0
+                )
+                if sample_result is None:
+                    return
+        # wipe screen
+        self.screen.fill(self.background)
+        self.flip()
+        

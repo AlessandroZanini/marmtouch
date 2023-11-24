@@ -1,5 +1,5 @@
 import time
-
+from marmtouch.experiments.util.events import get_first_tap
 
 class DelayMixin:
     def _run_delay(self, stimuli, timing):
@@ -27,30 +27,28 @@ class DelayMixin:
         # Start running delay
         self.screen.fill(self.background)
         self.flip()
-        start_time, current_time = time.time(), 0
         info = {"touch": 0, "RT": 0}
-        while current_time < timing["delay_duration"]:
-            current_time = time.time() - start_time
-
+        self.clock.wait(timing["delay_duration"])
+        while self.clock.waiting():
             # distractor rendering
             if distractor is not None:
-                if not distractor_drawn and current_time > distractor_onset:
+                if not distractor_drawn and self.clock.elapsed_time > distractor_onset:
                     self.draw_stimulus(**distractor)
                     self.flip()
                     distractor_drawn = True
-                elif not screen_wiped and current_time > distractor_offset:
+                elif not screen_wiped and self.clock.elapsed_time > distractor_offset:
                     self.screen.fill(self.background)
                     self.flip()
                     screen_wiped = True
 
             # processing input events
-            tap = self.get_first_tap(self.parse_events())
+            tap = get_first_tap(self.event_manager.parse_events())
             if not self.running:
                 return
             if tap is not None:
                 info = {
                     "touch": 1,
-                    "RT": current_time - start_time,
+                    "RT": self.clock.elapsed_time,
                     "x": tap[0],
                     "y": tap[1],
                 }

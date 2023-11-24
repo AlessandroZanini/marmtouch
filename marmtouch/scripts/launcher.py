@@ -2,6 +2,7 @@ import math
 import time
 import tkinter as tk
 from functools import partial
+import os
 from pathlib import Path
 
 import click
@@ -186,8 +187,7 @@ class Launcher:
 
     def run(self, task, config):
         params = util.read_yaml(config)
-        session = time.strftime("%Y-%m-%d_%H-%M-%S")
-        data_dir = Path("/home/pi/Touchscreen", session)
+        data_dir = util.get_data_directory()
         if task.name in ["basic", "random", "reversal"]:
             from marmtouch.experiments.basic import Basic as Experiment
         elif task.name in ["memory", "cued", "vmcl", "auditory_discrimination"]:
@@ -210,4 +210,5 @@ default_config_directory = "/home/pi/configs/"
 @click.command()
 @click.option('--debug/--no-debug', default=False, help='Run in debug mode, default is False')
 def launch(debug):
-    Launcher(default_config_directory, debug=debug)
+    config_directory = os.environ.get("MARMTOUCH_CONFIG_DIRECTORY", default_config_directory)
+    Launcher(config_directory, debug=debug)

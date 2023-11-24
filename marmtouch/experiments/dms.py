@@ -8,6 +8,7 @@ import pygame
 from marmtouch.experiments.base import Experiment
 from marmtouch.experiments.mixins.task_components.delay import DelayMixin
 from marmtouch.experiments.trialrecord import TrialRecord
+from marmtouch.experiments.util.events import get_first_tap, was_tapped
 from marmtouch.util.parse_csv import parse_csv
 
 
@@ -29,7 +30,7 @@ class DMS(Experiment, DelayMixin):
         "nonmatch_img",
         "sync_onset",
         "start_stimulus_onset",
-        "start_stimulus_offset"
+        "start_stimulus_offset",
     )
     name = "DMS"
     info_background = (0, 0, 0)
@@ -46,18 +47,17 @@ class DMS(Experiment, DelayMixin):
         self.draw_stimulus(**sample)
         self.flip()
 
-        start_time = current_time = time.time()
         info = {"touch": 0, "RT": 0}
-        while (current_time - start_time) < timing["sample_duration"]:
-            current_time = time.time()
-            tap = self.get_first_tap(self.parse_events())
+        self.clock.wait(timing["sample_duration"])
+        while self.clock.waiting():
+            tap = get_first_tap(self.event_manager.parse_events())
             if not self.running:
                 return
             if tap is not None:
-                if self.was_tapped(sample["loc"], tap, sample["window"]):
+                if was_tapped(sample["loc"], tap, sample["window"]):
                     info = {
                         "touch": 1,
-                        "RT": current_time - start_time,
+                        "RT": self.clock.elapsed_time,
                         "x": tap[0],
                         "y": tap[1],
                     }
@@ -77,20 +77,19 @@ class DMS(Experiment, DelayMixin):
             self.draw_stimulus(**sample)
         self.flip()
 
-        start_time = current_time = time.time()
         info = {"touch": 0, "RT": 0}
-        while (current_time - start_time) < timing["test_duration"]:
-            current_time = time.time()
-            tap = self.get_first_tap(self.parse_events())
+        self.clock.wait(timing["test_duration"])
+        while self.clock.waiting():
+            tap = get_first_tap(self.event_manager.parse_events())
             if not self.running:
                 return
             if tap is None:
                 continue
             else:
-                if self.was_tapped(target["loc"], tap, target["window"]):
+                if was_tapped(target["loc"], tap, target["window"]):
                     info = {
                         "touch": 1,
-                        "RT": current_time - start_time,
+                        "RT": self.clock.elapsed_time,
                         "x": tap[0],
                         "y": tap[1],
                     }
@@ -99,26 +98,26 @@ class DMS(Experiment, DelayMixin):
                     self.draw_stimulus(**target)
                     self.flip()
                     self.good_monkey()
-                    start_time = time.time()
-                    while (time.time() - start_time) < timing["correct_duration"]:
-                        self.parse_events()
+                    self.clock.wait(timing["correct_duration"])
+                    while self.clock.waiting():
+                        self.event_manager.parse_events()
                     # clear screen and exit
                     self.screen.fill(self.background)
                     self.flip()
                     break
-                elif self.was_tapped(distractor["loc"], tap, distractor["window"]):
+                elif was_tapped(distractor["loc"], tap, distractor["window"]):
                     info = {
                         "touch": 2,
-                        "RT": current_time - start_time,
+                        "RT": self.clock.elapsed_time,
                         "x": tap[0],
                         "y": tap[1],
                     }
                     # show incorrect for incorrect duration
                     self.screen.fill(self.background)
                     self.flip()
-                    start_time = time.time()
-                    while (time.time() - start_time) < timing["incorrect_duration"]:
-                        self.parse_events()
+                    self.clock.wait(timing["incorrect_duration"])
+                    while self.clock.waiting():
+                        self.event_manager.parse_events()
                     # clear screen and exit
                     self.screen.fill(self.background)
                     self.flip()
@@ -157,6 +156,13 @@ class DMS(Experiment, DelayMixin):
             stimuli = {"sample": sample, "target": nonmatch, "distractor": match}
         return stimuli, match_name, nonmatch_name
 
+    def get_timing(self, condition):
+        timing = {
+            f"{event}_duration": self.get_duration(event)
+            for event in ["sample", "delay", "test", "correct", "incorrect"]
+        }
+        return timing
+
     def run(self):
         self.initialize()
         if self.options.get("method", "itemfile") == "itemfile":
@@ -164,11 +170,11 @@ class DMS(Experiment, DelayMixin):
 
         self.itemid = trial = 0
         self.running = True
-        self.start_time = time.time()
         while self.running:
             self.update_info(trial)
             self._run_intertrial_interval()
-            if not self.running: return
+            if not self.running:
+                return
 
             # initialize trial parameters
             condition = self.get_condition()
@@ -176,12 +182,7 @@ class DMS(Experiment, DelayMixin):
                 break
 
             stimuli, match_img, nonmatch_img = self.get_stimuli(self.itemid, condition)
-
-            ## GET TIMING INFO
-            timing = {
-                f"{epoch}_duration": self.get_duration(epoch)
-                for epoch in ["sample", "delay", "test", "correct", "incorrect"]
-            }
+            timing = self.get_timing(condition)
 
             if self.options.get("push_to_start", True):
                 start_result = self._start_trial()
@@ -195,7 +196,7 @@ class DMS(Experiment, DelayMixin):
                 )
 
             # initialize trial parameters
-            trial_start_time = time.time() - self.start_time
+            trial_start_time = self.clock.get_time()
             self.trial = TrialRecord(
                 self.keys,
                 trial=trial,
@@ -211,11 +212,15 @@ class DMS(Experiment, DelayMixin):
                 **timing,
             )
             if self.options.get("push_to_start", False):
-                start_stimulus_offset=-(SYNC_PULSE_DURATION+start_result["start_stimulus_delay"])
-                self.trial.data.update(dict(
-                    start_stimulus_offset=start_stimulus_offset,
-                    start_stimulus_onset=start_stimulus_offset-start_result["RT"],
-                ))
+                start_stimulus_offset = -(
+                    SYNC_PULSE_DURATION + start_result["start_stimulus_delay"]
+                )
+                self.trial.data.update(
+                    dict(
+                        start_stimulus_offset=start_stimulus_offset,
+                        start_stimulus_onset=start_stimulus_offset - start_result["RT"],
+                    )
+                )
 
             # run trial
             sample_result = self._show_sample(stimuli, timing)
@@ -265,3 +270,34 @@ class DMS(Experiment, DelayMixin):
                 outcome,
                 trialunique=self.active_block.get("repeat_items", True),
             )
+
+    def _test_trial(self, test):
+        self._setup_test_trial(test)
+        self.update_info(test['trial'])
+        stimuli, match_img, nonmatch_img = self.get_stimuli(test['itemid'], test['condition'])
+        timing = self.get_timing(test['condition'])
+        # run trial
+        sample_result = self._show_sample(stimuli, timing)
+        if sample_result is None:
+            break
+        if sample_result["touch"] >= 0:  # no matter what
+            if (timing["delay_duration"] < 0):  
+                # if delay duration is negative, skip delay and
+                # keep the sample on during test phase
+                delay_result = dict(touch=0, RT=0)
+            else:
+                delay_result = self._run_delay(stimuli, timing)
+            if delay_result is None:
+                break
+            if delay_result.get("touch", 0) >= 0:  # no matter what
+                test_result = self._show_test(
+                    stimuli,
+                    timing,
+                    show_distractor=stimuli["distractor"] is not None,
+                    show_sample=timing["delay_duration"] < 0,
+                )
+                if test_result is None:
+                    break
+        # wipe screen
+        self.screen.fill(self.background)
+        self.flip()

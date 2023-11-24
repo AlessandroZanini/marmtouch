@@ -1,10 +1,12 @@
+import os
 import random
+import re
+import sys
 import time
 import warnings
 from collections import ChainMap, Counter
 from itertools import cycle
 from pathlib import Path
-import re
 
 import pygame
 import RPi.GPIO as GPIO
@@ -13,14 +15,19 @@ import yaml
 import marmtouch.util as util
 from marmtouch import __version__
 from marmtouch.experiments.mixins.artist import ArtistMixin
-from marmtouch.experiments.mixins.events import EventsMixin
 from marmtouch.experiments.mixins.block import BlockManagerMixin
-from marmtouch.experiments.util.generate_auditory_stimuli import \
-    generate_sine_wave_snd
+from marmtouch.experiments.util.clock import Clock
+from marmtouch.experiments.util.events import (
+    EventHandler,
+    get_first_tap,
+    was_tapped,
+)
+from marmtouch.experiments.util.generate_auditory_stimuli import generate_sine_wave_snd
+from marmtouch.experiments.util.parse_items import parse_item, parse_items
 from marmtouch.util.svg2img import svg2img
 
 
-class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
+class Experiment(ArtistMixin, BlockManagerMixin):
     """Base Class for designing experiments in marmtouch
 
     Parameters
@@ -69,7 +76,12 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
     info_background = (0, 0, 0)
     _image_cache_max_len = 20
     _audio_tracks_cache_max_len = 20
-    system_config_path = "/home/pi/marmtouch_system_config.yaml"
+    default_system_config_path = "/home/pi/marmtouch_system_config.yaml"
+    default_info_screen_spec = dict(
+        size=(350, 800),
+        loc=(0, 0),
+    )
+    default_screen_size = 1200, 800
     start_duration = 1e4
     start_stimulus = dict(
         type="circle",
@@ -82,7 +94,7 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
         "Condition": "condition",
     }
     outcome_key = "target_touch"
-    
+
     DEFAULT_BLOCK_LENGTH = 100
     DEFAULT_TTL_OUT = {"reward": 11, "sync": 16}
 
@@ -98,13 +110,24 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
         debug_mode=False,
         touch_exit=True,
         system_config_path=None,
+        loglevel="WARN",
     ):
         if system_config_path is None:
-            system_config_path = self.system_config_path
+            system_config_path = os.environ.get(
+                "MARMTOUCH_SYSTEM_CONFIG", self.default_system_config_path
+            )
         system_params = util.read_yaml(Path(system_config_path))
         params.update(system_params)
         self.debug_mode = debug_mode
         self.touch_exit = touch_exit
+
+        # add stimulus directory to the path
+        sys.path.append(
+            params.get(
+                "stimulus_directory",
+                os.environ.get("MARMTOUCH_STIMULUS_DIRECTORY", "."),
+            )
+        )
 
         data_dir = Path(data_dir)
         if not data_dir.is_dir():
@@ -121,7 +144,7 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
         with open(self.behdata_path.as_posix(), "w") as f:
             f.write(",".join(self.keys) + "\n")
 
-        self.logger = util.getLogger(self.logger_path.as_posix())
+        self.logger = util.getLogger(self.logger_path.as_posix(), printLevel=loglevel)
 
         # Initialize camera parameters
         self.camera_preview = camera_preview
@@ -139,14 +162,23 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
             TTLout = params.get("ttl", self.DEFAULT_TTL_OUT)
         self.TTLout = {k: util.TTL(v) for k, v in TTLout.items()}
 
+        self.screen_config = params.get("screen_config", {})
+        self.info_screen_spec = self.screen_config.get(
+            "info_screen_spec", self.default_info_screen_spec
+        )
+        self.transform = self.screen_config.get("transform", None)
+        self.screen_size = self.screen_config.get("size", self.default_screen_size)
+
         self.params = params
         self.timing = params["timing"]
         self.conditions = params["conditions"]
         self.background = params["background"]
-        self.items = params["items"]
+        self.items = parse_items(params["items"], self.transform)
         self.reward = params.get("reward", self.default_reward_params)
         self.options = params.get("options", {})
-        self.start_stimulus = self.options.get("start_stimulus", self.start_stimulus)
+        self.start_stimulus = parse_item(
+            self.options.get("start_stimulus", self.start_stimulus), self.transform
+        )
         self.start_duration = self.options.get("start_duration", self.start_duration)
         self.images = {}
         self.audio_tracks = {}
@@ -162,17 +194,20 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
                     "length": self.DEFAULT_BLOCK_LENGTH,
                 }
             ]
+        self.block_list = blocks
         self.blocks = cycle(blocks)
         self.condition_list = []
 
         self.behdata = []
         self.events = []
 
-        self.logger.info(f"experiment initialized using marmtouch version {__version__}")
+        self.logger.info(
+            f"experiment initialized using marmtouch version {__version__}"
+        )
 
     def good_monkey(self):
-        """Rewards monkey 
-        
+        """Rewards monkey
+
         Pulses on `reward` pin as defined in `TTLout`
         Pulse parameters are defined in `config.reward`
         """
@@ -180,7 +215,7 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
 
     def get_duration(self, name):
         """Get NAME duration
-        
+
         The duration may be defined in timing dictionary at the top level
         or in the timing dictionary of a specific block.
 
@@ -191,7 +226,7 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
         ----------
         name: str
             Name of duration to get
-        
+
         Returns
         -------
         duration: float
@@ -224,10 +259,9 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
         else:
             return random.choice(duration)
 
-
     def graceful_exit(self):
         """Gracefully exit experiment
-        
+
         Cleans up GPIO, stops and closes camera, saves behavioural and event data, and closes pygame window.
         """
         self.logger.info("graceful exit triggered")
@@ -250,7 +284,10 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
             warnings.warn("Event data did not save to disk. Keeping temp file.")
         else:
             self.logger.info("Event data saved properly.  Removing temp file.")
-            self.temp_events_path.unlink()
+            if self.temp_events_path.exists():
+                self.temp_events_path.unlink()
+            else:
+                warnings.warn("Temp file not found.")
         self.running = False
         pygame.mixer.quit()
         pygame.quit()
@@ -258,7 +295,7 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
 
     def dump_trialdata(self):
         """Dump trial data to file
-        
+
         If a trial is in progress, the available data is dumped.  Otherwise return
 
         Once dumped, trial data is appended to history and cleared.
@@ -284,9 +321,9 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
         if self.fullscreen:
             self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         else:
-            self.screen = pygame.display.set_mode((1200, 800))
+            self.screen = pygame.display.set_mode(self.screen_size)
         self.info = {}
-        self.info_screen = pygame.Surface((350, 800))
+        self.info_screen = pygame.Surface(self.info_screen_spec["size"])
         self.screen.fill(self.background)
         self.info_screen.fill(self.info_background)
         self.session_font = pygame.font.Font(None, 40)
@@ -306,6 +343,10 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
         self.session_txt_rect = self.session_txt.get_rect(bottomleft=(0, 800 - 30))
         pygame.mixer.init()
 
+        self.clock = Clock()
+        self.clock.start()
+        self.event_manager = EventHandler(self, self.clock)
+
     def get_image_stimulus(self, path, **params):
         """Get image stimulus
 
@@ -315,7 +356,7 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
             Path to image file
         params: dict
             Dictionary of parameters for the stimulus
-        
+
         Returns
         -------
         params: dict
@@ -361,7 +402,7 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
         else:
             params["image"] = image
         return params
-    
+
     def get_audio_stimulus(self, path, **params):
         """Get audio stimulus
 
@@ -396,7 +437,7 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
 
         Parameters
         ----------
-        
+
         """
         if "freq" not in params:
             raise ValueError("Must provide frequency for pure tone stimuli")
@@ -418,7 +459,7 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
             Item key
         params: dict
             Dictionary of parameters for the stimulus
-        
+
         Returns
         -------
         params: dict
@@ -439,7 +480,9 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
 
     def flip(self):
         """Updates the screen"""
-        self.screen.blit(self.info_screen, (0, 0))
+        self.info_screen_rect = self.screen.blit(
+            self.info_screen, self.info_screen_spec["loc"]
+        )
         pygame.display.update()
 
     def _run_intertrial_interval(self, default_duration=5):
@@ -451,13 +494,13 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
             Default duration of intertrial interval
         """
 
-        start_time = time.time()
-        while self.running and time.time() - start_time < self.options.get("iti", default_duration):
-            self.parse_events()
+        self.clock.wait(self.options.get("iti", default_duration))
+        while self.running and self.clock.waiting():
+            self.event_manager.parse_events()
 
     def _start_trial(self):
         """Run push to start trial
-        
+
         A stimulus, as defined in :opt:`start_stimulus` is displayed and the
         subject must press it to start the trial within :opt:`start_duration`
         seconds.
@@ -472,18 +515,17 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
         self.draw_stimulus(**self.start_stimulus)
         self.flip()
 
-        start_time = current_time = time.time()
         info = {"touch": 0, "RT": 0}
-        while self.running and (current_time - start_time) < self.start_duration:
-            current_time = time.time()
-            tap = self.get_first_tap(self.parse_events())
+        self.clock.wait(self.start_duration)
+        while self.running and self.clock.waiting():
+            tap = get_first_tap(self.event_manager.parse_events())
             if tap is not None:
-                if self.was_tapped(
+                if was_tapped(
                     self.start_stimulus["loc"], tap, self.start_stimulus["window"]
                 ):
                     info = {
                         "touch": 1,
-                        "RT": current_time - start_time,
+                        "RT": self.clock.elapsed_time,
                         "x": tap[0],
                         "y": tap[1],
                     }
@@ -494,11 +536,13 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
         self.screen.fill(self.background)
         self.flip()
 
-        info["start_stimulus_delay"] = self._compute_duration(self.options.get("start_stimulus_delay", 0))
+        info["start_stimulus_delay"] = self._compute_duration(
+            self.options.get("start_stimulus_delay", 0)
+        )
 
-        start_time = time.time()
-        while self.running and (time.time()-start_time) < info["start_stimulus_delay"]:
-            self.parse_events()
+        self.clock.wait(info["start_stimulus_delay"])
+        while self.running and self.clock.waiting():
+            self.event_manager.parse_events()
         return info
 
     def update_info_data(self):
@@ -517,13 +561,15 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
         """
         overall = sum(self.info.values(), Counter())
 
-        info_font_size = min(250//max(len(self.info), 1), 30)
+        info_font_size = min(250 // max(len(self.info), 1), 30)
         info_font = pygame.font.Font(None, info_font_size)
 
         info = f"{self.params['monkey']} {self.params['task']} Trial#{trial}\n"
         info += f"Overall: {overall[1]: 3d} correct, {overall[2]+overall.get(3,0): 3d} incorrect, {overall[0]: 3d} no response\n"
         for keys, trialcountdata in self.info.items():
-            header = ", ".join([f"{field} {key}" for field, key in zip(self.info_breakdown_keys, keys)])
+            header = ", ".join(
+                [f"{field} {key}" for field, key in zip(self.info_breakdown_keys, keys)]
+            )
             trialcounts = f"{trialcountdata[1]: 3d} correct, {trialcountdata[2]+trialcountdata.get(3,0): 3d} incorrect"
             info += f"{header}: {trialcounts}\n"
 
@@ -558,5 +604,55 @@ class Experiment(ArtistMixin, EventsMixin, BlockManagerMixin):
         max_responses = self.options.get("max_responses")
         if max_responses is None:
             return False
-        n_responses = sum(trial[self.outcome_key] != 0 for trial in self.behdata) 
+        n_responses = sum(trial[self.outcome_key] != 0 for trial in self.behdata)
         return n_responses >= max_responses
+
+    def initialize_test(self):
+        # test initialisation
+        pygame.init()
+        self.screen = pygame.display.set_mode(self.screen_size)
+        self.info = {}
+        self.info_screen = pygame.Surface(self.info_screen_spec["size"])
+        self.screen.fill(self.background)
+        self.info_screen.fill(self.info_background)
+        self.session_font = pygame.font.Font(None, 40)
+        self.flip()
+        session_name = self.data_dir.name + " DEBUG MODE"
+        text_colour = pygame.Color("RED")
+        session_txt = self.session_font.render(session_name, True, text_colour)
+        self.session_txt = pygame.transform.rotate(session_txt, 90)
+        self.session_txt_rect = self.session_txt.get_rect(bottomleft=(0, 800 - 30))
+        self.debug_mode = True
+        pygame.mixer.init()
+
+    def capture_screen(self):
+        return pygame.image.tobytes(self.screen, "RGB")
+
+    def get_default_tests(self):
+        raise NotImplementedError("Must implement get_default_tests method")
+
+    def test(self, tests=None):
+        from PIL import Image
+
+        self.initialize_test()
+        if tests is None:
+            tests = self.get_default_tests()
+        for test in tests:
+            self._test_trial(test)
+            imgdir = self.data_dir / str(test["trial"])
+            imgdir.mkdir()
+            for i, img in enumerate(self.captures):
+                Image.frombytes("RGB", self.screen_size, img).save(imgdir / f"{i}.png")
+        self.graceful_exit()
+
+    def _setup_test_trial(self, test):
+        self.running = True
+        self.captures = []
+        self.init_block(self.block_list[test["block"]])
+
+        from marmtouch.experiments.util.clock import TestClock
+        from marmtouch.experiments.util.events import TestEventHandler
+
+        self.clock = TestClock()
+        self.clock.start()
+        self.event_manager = TestEventHandler(self, self.clock, test["event_queue"])
