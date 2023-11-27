@@ -339,8 +339,12 @@ class Experiment(ArtistMixin, BlockManagerMixin):
             session_name += " DEBUG MODE"
         text_colour = pygame.Color("RED") if self.debug_mode else pygame.Color("GREEN")
         session_txt = self.session_font.render(session_name, True, text_colour)
-        self.session_txt = pygame.transform.rotate(session_txt, 90)
-        self.session_txt_rect = self.session_txt.get_rect(bottomleft=(0, 800 - 30))
+        X, Y = 0, self.info_screen_spec["size"][1] - 30
+        session_label = self.info_screen_spec.get("session_label", {})
+        session_label_bottom_left = session_label.get('loc', (X, Y))
+        session_label_rotation = session_label.get('rotation', 90)
+        self.session_txt = pygame.transform.rotate(session_txt, session_label_rotation)
+        self.session_txt_rect = self.session_txt.get_rect(bottomleft=session_label_bottom_left)
         pygame.mixer.init()
 
         self.clock = Clock()
@@ -573,11 +577,12 @@ class Experiment(ArtistMixin, BlockManagerMixin):
             trialcounts = f"{trialcountdata[1]: 3d} correct, {trialcountdata[2]+trialcountdata.get(3,0): 3d} incorrect"
             info += f"{header}: {trialcounts}\n"
 
+        start_height = self.info_screen_spec.get('info_start_height', 0)
         self.info_screen.fill(self.info_background)
         for idx, line in enumerate(info.splitlines()):
             txt = info_font.render(line, True, pygame.Color("GREEN"))
             txt = pygame.transform.rotate(txt, 90)
-            self.info_screen.blit(txt, (idx * info_font_size, 30))
+            self.info_screen.blit(txt, (idx * info_font_size + start_height, 30))
 
         self.info_screen.blit(self.session_txt, self.session_txt_rect)
 

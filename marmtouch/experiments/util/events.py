@@ -19,20 +19,18 @@ class EventHandler:
         for event in pygame.event.get():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mouseX, mouseY = pygame.mouse.get_pos()
-                event = dict(mouseX=mouseX, mouseY=mouseY, **default_event_data)
+                touch_event = dict(mouseX=mouseX, mouseY=mouseY, **default_event_data)
                 if self.experiment.info_screen_rect.collidepoint(mouseX, mouseY):
                     exit_ = True
                 if self.experiment.touch_exit and exit_:
-                    event["type"] = "mouse_quit"
+                    touch_event["type"] = "mouse_quit"
                 else:
-                    event["type"] = "mouse_down"
+                    touch_event["type"] = "mouse_down"
                     # for touches, transform to stimulus coordinates
-                    event["x"], event["y"] = transform_location(
+                    touch_event["x"], touch_event["y"] = transform_location(
                         (mouseX, mouseY), self.experiment.transform, invert=True
                     )
-
-                event_stack.append(event)
-                # if mouseX < 300:
+                event_stack.append(touch_event)
             if event.type == pygame.QUIT:
                 event_stack.append(dict(type="QUIT", **default_event_data))
                 exit_ = True

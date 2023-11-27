@@ -11,7 +11,7 @@ function marmtouch() {
     python -m marmtouch.scripts $args
 }
 # export marmtouch environment variables
-$env:MARMTOUCH_SYSTEM_CONFIG = $env:SERVER_DIR\Touchscreen\setup\marmtouch_system_config.yaml
-$env:MARMTOUCH_STIMULUS_DIRECTORY = $env:SERVER_DIR\Touchscreen\stimuli
-$env:MARMTOUCH_CONFIG_DIRECTORY = $env:SERVER_DIR\Touchscreen\configs
-$env:MARMTOUCH_DATA_DIRECTORY = $env:SERVER_DIR\Touchscreen\data
+$env:MARMTOUCH_SYSTEM_CONFIG = "$env:SERVER_DIR\Touchscreen\setup\marmtouch_system_config.yaml"
+$env:MARMTOUCH_STIMULUS_DIRECTORY = "$env:SERVER_DIR\Touchscreen\stimuli"
+$env:MARMTOUCH_CONFIG_DIRECTORY = "$env:SERVER_DIR\Touchscreen\configs"
+$env:MARMTOUCH_DATA_DIRECTORY = "$env:SERVER_DIR\Touchscreen\data"
