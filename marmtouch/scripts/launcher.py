@@ -109,9 +109,21 @@ class Launcher:
     def _init(self):
         self.root = tk.Tk()
         self.root.title("marmtouch launcher")
-        self.root.geometry("300x700+0+0")
+        
+        system_config_path = os.environ.get(
+            "MARMTOUCH_SYSTEM_CONFIG", self.default_system_config_path
+        )
+        system_config = util.read_yaml(system_config_path)
+        launcher_settings = (system_config
+            .get("screen_config", {})
+            .get("launcher", {})
+        )
+        launcher_geometry = launcher_settings.get("geometry", "300x700+0+0")
+        page_size = launcher_settings.get("page_size", 7)
+
+        self.root.geometry(launcher_geometry)
         self.root.configure(background="gray99")
-        self.scframe = PaginatedFrame(self.root, 7, title="marmtouch launcher")
+        self.scframe = PaginatedFrame(self.root, page_size, title="marmtouch launcher")
         self.scframe.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE)
 
     def job_selector(self):
