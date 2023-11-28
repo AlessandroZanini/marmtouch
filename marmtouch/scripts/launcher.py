@@ -14,7 +14,7 @@ from marmtouch.util.get_network_interfaces import get_network_interfaces
 button_params = dict(
     height=3, width=20, relief=tk.FLAT, bg="gray99", fg="purple3", font="Dosis"
 )
-
+default_system_config_path = "/home/pi/marmtouch_system_config.yaml"
 class PaginatedFrame(tk.Frame):
     """A pure Tkinter frame with pagination functionality.
 
@@ -111,7 +111,7 @@ class Launcher:
         self.root.title("marmtouch launcher")
         
         system_config_path = os.environ.get(
-            "MARMTOUCH_SYSTEM_CONFIG", self.default_system_config_path
+            "MARMTOUCH_SYSTEM_CONFIG", default_system_config_path
         )
         system_config = util.read_yaml(system_config_path)
         launcher_settings = (system_config
