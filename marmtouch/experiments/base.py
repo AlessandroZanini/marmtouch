@@ -457,6 +457,8 @@ class Experiment(ArtistMixin, BlockManagerMixin):
         image cache.  SVG files are rasterized using the colour and size
         parameters.
 
+        Note that item parameters in the file take priority over run-time options
+
         Parameters
         ----------
         item_key: str, default None
@@ -469,9 +471,25 @@ class Experiment(ArtistMixin, BlockManagerMixin):
         params: dict
             Stimulus parameters
         """
+        # If the conditions field contains a dict use that
+        if isinstance(item_key, dict):
+            params.update(item_key)
+
+            # if there is a name, this is a partial description
+            # allow fetching, otherwise ignore
+            item_key = item_key.pop("name", None)
+
         if item_key is not None:
+            # some item definition is provided in items, use this
             params.update(self.items[item_key])
             params["name"] = item_key
+
+        if params["type"] == "random-choice":
+            choices = params.pop('choices')
+            weights = params.pop('weights', [1]*len(choices))
+            item = random.choices(choices, weights, 1)
+            params.update(item)
+
         if params["type"] == "image":
             params = self.get_image_stimulus(**params)
         elif params["type"] == "svg":
@@ -480,6 +498,7 @@ class Experiment(ArtistMixin, BlockManagerMixin):
             params = self.get_audio_stimulus(**params)
         elif params["type"] == "pure_tone":
             params = self.get_pure_tone_stimulus(**params)
+
         return params
 
     def flip(self):
